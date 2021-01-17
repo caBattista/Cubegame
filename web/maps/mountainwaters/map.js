@@ -40,9 +40,6 @@ class Map {
                 texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
             }
         },
-        "maps/mountainwaters/textures/metal/Metal06_nrm.jpg": { type: "texture" },
-        "maps/mountainwaters/textures/metal/Metal06_rgh.jpg": { type: "texture" },
-        "maps/mountainwaters/textures/metal/Metal06_met.jpg": { type: "texture" },
         "skyboxCube": {
             type: "cubeTexture", urls: [
                 "maps/mountainwaters/textures/skybox/left.jpg",

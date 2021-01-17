@@ -6,9 +6,9 @@ class Player {
         this.settings = settings.player;
         this.elements = {};
         this.textures = {
-            "textures/metal/Metal06_nrm.jpg": { type: "texture" },
-            "textures/metal/Metal06_rgh.jpg": { type: "texture" },
-            "textures/metal/Metal06_met.jpg": { type: "texture" }
+            "engine/player/textures/Metal06_nrm.jpg": { type: "texture" },
+            "engine/player/textures/Metal06_rgh.jpg": { type: "texture" },
+            "engine/player/textures/Metal06_met.jpg": { type: "texture" }
         }
         this.loadTextures(manager);
         this.createElements(scene);
@@ -37,10 +37,10 @@ class Player {
                 color:  "0xffffff ",//playerObj.color,
                 roughness: 0.4,
                 metalness: 1,
-                normalMap: this.textures["textures/metal/Metal06_nrm.jpg"],
+                normalMap: this.textures["engine/player/textures/Metal06_nrm.jpg"],
                 normalScale: new THREE.Vector2(1, - 1), // why does the normal map require negation in this case?
-                roughnessMap: this.textures["textures/metal/Metal06_rgh.jpg"],
-                metalnessMap: this.textures["textures/metal/Metal06_met.jpg"],
+                roughnessMap: this.textures["engine/player/textures/Metal06_rgh.jpg"],
+                metalnessMap: this.textures["engine/player/textures/Metal06_met.jpg"],
                 envMap: this.textures["skyboxCube"], // important -- especially for metals!
                 envMapIntensity: 2,
                 wireframe: this.settings.useWireframe

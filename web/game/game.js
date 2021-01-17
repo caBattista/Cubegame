@@ -2,6 +2,9 @@ class Game {
 
     constructor(loader) {
         this.loader = loader;
+
+        //Debug
+        //console.log = function () { }
     }
 
     async start() {
@@ -57,7 +60,7 @@ class Game {
         await this.loader.load("engine/engine");
         await this.loader.load("engine/self");
         await this.loader.load("engine/controls");
-        await this.loader.load("engine/player");
+        await this.loader.load("engine/player/player");
         await this.loader.load("engine/physics");
         await this.loader.load("maps/mountainwaters/water");//needs to be according to mapid
         await this.loader.load("maps/mountainwaters/map");
