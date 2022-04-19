@@ -8,6 +8,7 @@ const config = JSON.parse(fs.readFileSync('config.json'));
 //Database start
 const Database = require("./server/database.js");
 const db = new Database(config.database_settings);
+//const db = new Database(config.database_settings_dev);
 
 //Server start
 const express = require('express');
@@ -28,9 +29,11 @@ app.use('/', async (req, res) => {
 
   console.log("EX: requested file ", req.query.client_id, " ", path);
 
+  //check if requested file is public then send
   if (config.file_settings.public_files.includes(path)) {
     res.sendFile(path, { root: __dirname + config.file_settings.root_dir });
   }
+  //if client_id is given
   else if (req.query.client_id) {
     //Check message
     const valRes = Joi.validate(req.query.client_id, Joi.string().alphanum().required());
@@ -208,6 +211,7 @@ wss.on("map", "join", (data, client, send) => {
   send("success", sim.getMapState(data.mapId));
 });
 wss.on("map", "change", (data, client, send) => {
+  console.log("cahnge")
   if (data.changes.self) {
     const res = sim.changePlayer(client.id, data.changes.self);
     if (res === true) {
