@@ -16,7 +16,7 @@ class Database {
                     // DEBUG
                     await this.pgClient.query(`DELETE FROM characters`);
                     await this.pgClient.query(`DELETE FROM settings`);
-                    await this.pgClient.query(`DELETE FROM users`);
+                    //await this.pgClient.query(`DELETE FROM users`);
 
                     console.log("\x1b[32m%s\x1b[0m", "DATABASE:", "INIT COMPLETE");
                     res(true)

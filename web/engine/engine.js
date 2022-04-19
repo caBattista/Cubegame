@@ -144,8 +144,6 @@ class Engine {
         }
     }
 
-    handleChanges1(changes) { }
-
     handleChanges(callback) {
         this.handleChanges1 = callback;
     }
