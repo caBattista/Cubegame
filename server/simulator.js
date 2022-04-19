@@ -15,6 +15,7 @@ class Simulator {
     }
 
     addMap(mapId) {
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", mapId);
         this.maps[mapId] = { players: {} };
     }
 
@@ -36,11 +37,16 @@ class Simulator {
     }
 
     removePlayer(playerId) {
-        delete this.maps[this.getMapOfPlayer(playerId)].players[playerId];
+        const mapOfPlayer = this.getMapOfPlayer(playerId);
+        if (mapOfPlayer) {
+            delete this.maps[this.getMapOfPlayer(playerId)].players[playerId];
+            console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapOfPlayer);
+        }
     }
 
     addOffence(player, OId) {
         player.offences[OId] = player.offences[OId] > 0 ? ++player.offences[OId] : 1;
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "ADDED OFFENCE", player, OId);
     }
 
     getPlayers(callback) { // needs to be changed
@@ -124,7 +130,7 @@ class Simulator {
 
         this.maps[mapId].players[playerId].changeCount++;
         this.maps[mapId].players[playerId].posRot = posRot;
-        console.log("SM: ", JSON.stringify(this.maps, null, 1))
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", JSON.stringify(this.maps, null, 1));
     }
 
     //checks if players are running higher fps in game

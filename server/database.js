@@ -1,24 +1,36 @@
 class Database {
-    constructor(cedentials) {
+    constructor(config) {
+        this.config = config;
         const { Client } = require('pg');
-        this.pgClient = new Client(cedentials);
-        this.pgClient.connect().then(() => {
-            this.prepareDatabase();
-        }).catch(ex => console.log(ex));
+        this.pgClient = new Client(this.config);
     }
 
-    async prepareDatabase() {
-        await this.pgClient.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-        // await this.pgClient.query(`DELETE FROM characters`);
-        // await this.pgClient.query(`DELETE FROM settings`);
-        // await this.pgClient.query(`DELETE FROM users`);
-        await this.pgClient.query(`DELETE FROM maps`);
+    async init() {
+        return new Promise((res, rej) => {
+            this.pgClient.connect().then(() => {
+                this.pgClient.query(`SELECT version();`).then(async pgRes => {
+                    console.log("\x1b[32m%s\x1b[0m", "DATABASE:", pgRes.rows[0].version);
+                    await this.pgClient.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+                    await this.pgClient.query(`DELETE FROM maps`);
+
+                    // DEBUG
+                    await this.pgClient.query(`DELETE FROM characters`);
+                    await this.pgClient.query(`DELETE FROM settings`);
+                    await this.pgClient.query(`DELETE FROM users`);
+
+                    console.log("\x1b[32m%s\x1b[0m", "DATABASE:", "INIT COMPLETE");
+                    res(true)
+                }).catch(err => {
+                    rej(this.handleError(err));
+                });
+            }).catch(ex => console.log("\x1b[32m%s\x1b[0m", "DATABASE:", ex));
+        });
     }
 
     end() { this.pgClient.end(); }
 
     handleError(err) {
-        console.log("DB:", err);
+        console.log("\x1b[32m%s\x1b[0m", "DATABASE:", err);
         return "";
     }
 
@@ -89,10 +101,10 @@ class Database {
     addMap(map) {
         return new Promise((res, rej) => {
             this.pgClient.query(`
-            INSERT INTO maps(id, type, max_players) 
-            VALUES (uuid_generate_v4(), $1, $2)
+            INSERT INTO maps(id, type, max_players, players) 
+            VALUES (uuid_generate_v4(), $1, $2, $3)
             RETURNING id`,
-                [map.type, map.max_players])
+                [map.type, map.max_players, 0])
                 .then((pgRes => { res(pgRes.rows); }))
                 .catch(err => { rej(this.handleError(err)); })
         });

@@ -1,5 +1,5 @@
 {
-    "database_settings": {
+    "database": {
         "host": "ec2-52-211-161-21.eu-west-1.compute.amazonaws.com",
         "port": "5432",
         "user": "vpfoytssjokdey",
@@ -9,18 +9,16 @@
             "rejectUnauthorized": false
         }
     },
-    "database_settings_dev": {
+    "database_dev": {
         "host": "127.0.0.1",
         "port": "5432",
         "user": "postgres",
         "password": "1234",
         "database": "game"
     },
-    "express_settings": {
-        "port": "1337"
-    },
-    "file_settings": {
-        "root_dir": "/web/",
+    "webserver": {
+        "port": "1337",
+        "root_dir": "./web/",
         "public_files": [
             "/main/index.html",
             "/main/favicon.png",
@@ -33,7 +31,7 @@
             "/ui/login/login.css"
         ]
     },
-    "user_default_settings": {
+    "user_default": {
         "sound_global_volume": 100,
         "controls_forward": "KeyW",
         "controls_backward": "KeyS",

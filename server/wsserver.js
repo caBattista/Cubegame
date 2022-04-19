@@ -1,14 +1,17 @@
 class WSServer {
   constructor(server) {
+
     //For client identification
     this.crypto = require('crypto');
     this.clients = {};
     this.handlers = {};
 
     const WebSocket = require('ws');
+
     //same port as express
     this.wss = new WebSocket.Server({ server: server, clientTracking: false });
-    console.log("WS: started");
+
+    console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "STARTED");
 
     //Handle Ping to keep websockets open
     this.on("websocket", "ping", (data, client, send) => {
@@ -16,7 +19,6 @@ class WSServer {
     })
 
     this.wss.on('connection', (ws, req) => {
-
       //add client
       const client = {
         id: this.crypto.randomBytes(16).toString("hex"),
@@ -30,7 +32,7 @@ class WSServer {
       //on message
       ws.on('message', RawData => {
         RawData = JSON.parse(RawData);
-        console.log("WS: recieved from ", client.id, RawData);
+        console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "RECIEVED FROM ", client.id, "\n", RawData);
         const handler = this.handlers[RawData.topic][RawData.action];
         if (typeof handler === 'function') {
           handler(RawData.data, client, (status, data, clientsIds = [client.id]) => {
@@ -42,14 +44,14 @@ class WSServer {
         else {
           const errMsg = `Message handler for topic "${RawData.topic}" and action "${RawData.action}" not found`
           this.send(client, RawData.topic, RawData.action, "error", errMsg);
-          console.log(`WS: ${errMsg}`);
+          console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", errMsg);
         }
       });
 
       //on close
       ws.on('close', RawData => {
         RawData = JSON.parse(RawData);
-        console.log(`WS: client ${client.id} disconnected: ${RawData}`);
+        console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", `CLIENT ${client.id} DISCONNECTED: ${RawData}`);
         const handler = this.handlers["websocket"]["disconnect"];
         if (typeof handler === 'function') {
           handler(RawData.msg, client, (status, data) => {
@@ -71,7 +73,7 @@ class WSServer {
     const response = { topic: topic, action: action, status: status };
     if (data) { response.data = data; }
     client.ws.send(JSON.stringify(response));
-    console.log("WS: send to ", client.id, response);
+    console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "SEND TO ", client.id, "\n", response);
   }
 
   closeConnection(id, code, reason) {
