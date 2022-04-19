@@ -208,7 +208,7 @@
       } else {
         const players = sim.getPlayersIdsOfMap(sim.getMapOfPlayer(client.id));
         players.splice(players.indexOf(client.id), 1);
-        players.forEach(playerId => {
+        players.forEach(playerId => { 
           wss.send(wss.clients[playerId], "map", "updatePlayers", "success", sim.getPlayer(client.id))
         })
       }
