@@ -31,7 +31,7 @@ class Player {
         }
     }
     
-    createElements(scene) {
+    createElements(scene, textures) {
         const playerSettings = {
             High: {
                 color:  "0xffffff ",//playerObj.color,
@@ -41,7 +41,7 @@ class Player {
                 normalScale: new THREE.Vector2(1, - 1), // why does the normal map require negation in this case?
                 roughnessMap: this.textures["engine/player/textures/Metal06_rgh.jpg"],
                 metalnessMap: this.textures["engine/player/textures/Metal06_met.jpg"],
-                envMap: this.textures["skyboxCube"], // important -- especially for metals!
+                //envMap: textures["skyboxCube"], // important -- especially for metals!
                 envMapIntensity: 2,
                 wireframe: this.settings.useWireframe
             }, Low: {

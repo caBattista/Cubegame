@@ -9,7 +9,7 @@
             "rejectUnauthorized": false
         }
     },
-    "database_settings_local": {
+    "database_settings_dev": {
         "host": "127.0.0.1",
         "port": "5432",
         "user": "postgres",
