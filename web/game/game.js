@@ -1,5 +1,6 @@
 class Game {
 
+    //Starts here from Index.html
     constructor(loader) {
         this.loader = loader;
 
@@ -8,19 +9,17 @@ class Game {
     }
 
     async start() {
-        //load ui
+        //Load UI
         await this.loader.load("ui/ui", 1);
         this.ui = new Ui(this);
 
-        //login
+        //Login (Websocket is started and added to Game after submit)
         await this.loader.load("ui/login/login", 1);
-        await new Login(this).login();
+        //await new Login(this).login();
+        await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
-
-        //Auto login
-        //await this.ws.request("user", "login", { username: '123', password: '123' });
-
-        //mainmenu
+    
+        //Mainmenu
         await this.loader.load("ui/mainmenu/mainmenu", 1);
 
         this.mainmenu = new Mainmenu(this);

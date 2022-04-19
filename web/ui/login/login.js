@@ -5,9 +5,8 @@ class Login extends Ui {
         this.game = game;
     }
 
-    async login() {
+    login() {
         return new Promise((resolve, reject) => {
-
             const el = this.createHTML(`
             <img class="loginLogo"src="main/favicon.png"/>
             <h1>Please log in</h1>
@@ -61,6 +60,17 @@ class Login extends Ui {
                     el.parentNode.children[2].style.opacity = "0.9";
                 }, 500)
             }, 100);
+        });
+    }
+
+    autoLogin(username, password, action) {
+        return new Promise(async (resolve, reject) => {
+            await this.game.loader.load("util/ws");
+            this.game.ws = new Ws(this.game);
+            this.game.loader.addClientId(await this.game.ws.connect());
+            await this.game.ws.request("user", action, { username: username, password: password })
+            document.body.innerHTML = "";
+            resolve();
         });
     }
 }
