@@ -19,10 +19,10 @@ class Ws {
             this.ws.onopen = () => {
                 this.ws.onmessage = e => {
                     const msg = JSON.parse(e.data);
-                    console.log("WS GOT: ", msg);
+                    if (["map"].indexOf(msg.topic) === -1 || true) { console.log("WS GOT: ", msg); }
                     const handler = this.handlers[msg.topic] ? this.handlers[msg.topic][msg.action] : null;
                     if (typeof handler === "function") { handler(msg.status, msg.data); }
-                    else { console.log(`WS: Message handler for ${msg.topic}/${msg.action} not found`) }
+                    else { console.log(`WS: Message handler for topic '${msg.topic}' action '${msg.action}' not found`) }
                 };
                 this.ws.onclose = ev => {
                     try { this.game.engine.dispose(); } catch (e) { }
@@ -83,7 +83,7 @@ class Ws {
     send(topic, action, data) {
         const request = { topic: topic, action: action };
         if (data) { request.data = data; }
-        console.log("WS SENT:", request)
+        if (["map"].indexOf(topic) === -1 || true) { console.log("WS SENT:", request) }
         this.ws.send(JSON.stringify(request));
     }
 

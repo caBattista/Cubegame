@@ -32,7 +32,9 @@ class WSServer {
       //on message
       ws.on('message', RawData => {
         RawData = JSON.parse(RawData);
-        console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "RECIEVED FROM ", client.id, "\n", RawData);
+        if (["map"].indexOf(RawData.topic) === -1) {
+          console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "RECIEVED FROM ", client.id, "\n", RawData);
+        }
         const handler = this.handlers[RawData.topic][RawData.action];
         if (typeof handler === 'function') {
           handler(RawData.data, client, (status, data, clientsIds = [client.id]) => {
@@ -73,7 +75,9 @@ class WSServer {
     const response = { topic: topic, action: action, status: status };
     if (data) { response.data = data; }
     client.ws.send(JSON.stringify(response));
-    console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "SEND TO ", client.id, "\n", response);
+    if (["map"].indexOf(topic) === -1) {
+      console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "SEND TO ", client.id, "\n", response);
+    }
   }
 
   closeConnection(id, code, reason) {

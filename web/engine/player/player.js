@@ -1,10 +1,11 @@
 class Player {
 
-    constructor() {}
+    constructor() { }
 
-    init(settings, manager, scene, physics) {
-        this.settings = settings.player;
+    init(type, settings, manager, scene, physics) {
+        this.type = type;
         this.elements = {};
+        this.settings = settings.player;
         this.textures = {
             "engine/player/textures/Metal06_nrm.jpg": { type: "texture" },
             "engine/player/textures/Metal06_rgh.jpg": { type: "texture" },
@@ -12,7 +13,6 @@ class Player {
         }
         this.loadTextures(manager);
         this.createElements(scene);
-        //physics.addMesh(this.elements.yaw);
         return this;
     }
 
@@ -30,11 +30,12 @@ class Player {
             }
         }
     }
-    
-    createElements(scene, textures) {
+
+    createElements(scene) {
+
         const playerSettings = {
             High: {
-                color:  "0xffffff ",//playerObj.color,
+                color: "0xffffff ",//playerObj.color,
                 roughness: 0.4,
                 metalness: 1,
                 normalMap: this.textures["engine/player/textures/Metal06_nrm.jpg"],
@@ -50,24 +51,100 @@ class Player {
             }
         }
 
-        const player = new THREE.Mesh(
+        const yaw = new THREE.Mesh(
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial(playerSettings[this.settings.graphics_quality])
         );
+        yaw.position.set(0, this.settings.height, 0);
+        this.elements.yaw = yaw;
 
-        player.receiveShadow = this.settings.graphics_quality === "High";
-        player.castShadow = this.settings.graphics_quality === "High";
-
-        scene.add(player);
-        this.elements.player = player;
-    }
-
-    set(palyerObj) {
-        this.elements.player.position.set(
-            palyerObj.posRot.position.x,
-            palyerObj.posRot.position.y,
-            palyerObj.posRot.position.z,
+        const pitch = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: this.settings.useWireframe })
         );
-        this.elements.player.rotation.y = palyerObj.posRot.rotation.y;
+        pitch.receiveShadow = true;
+        pitch.castShadow = true;
+
+        yaw.add(pitch);
+        this.elements.pitch = pitch;
+
+        if (this.type == "self") {
+            const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 10000);
+            //camera.position.set(0,2,-5);
+            camera.rotation.set(0, Math.PI, 0);
+            //scene.add( new THREE.CameraHelper( camera ) );
+
+            pitch.add(camera);
+            this.elements.camera = camera;
+
+            yaw.receiveShadow = this.settings.graphics_quality === "High";
+            yaw.castShadow = this.settings.graphics_quality === "High";
+        }
+        scene.add(yaw)
     }
+
+    //player
+    set(data) {
+        this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z);
+        this.elements.yaw.rotation.y = data.rotation.y;
+        this.elements.pitch.rotation.x = data.rotation.x;//cause becaus pitch was not defined for player
+    }
+
+    // //self
+    // changespeeed(s) { this.settings.speed = s; }
+    // //self
+    // moveDegRad(degRad) {
+    //     this.elements.yaw.position.add(
+    //         this.elements.camera.getWorldDirection(new THREE.Vector3())
+    //             .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
+    //             .multiply(new THREE.Vector3(this.settings.speed, 0, this.settings.speed))
+    //     );
+    // }
+    //self
+    // do(option) {
+    //     switch (option) {
+    //         case "controls_forward": this.moveDegRad(0); break;
+    //         case "controls_backward": this.moveDegRad(Math.PI); break;
+    //         case "controls_left": this.moveDegRad(Math.PI / 2); break;
+    //         case "controls_right": this.moveDegRad(-Math.PI / 2); break;
+    //         case "controls_jump": this.elements.yaw.position.y += this.settings.speed; break;
+    //         case "controls_sprint":
+    //             this.settings.speed = 2;
+    //             break;
+    //         case "setDefaults":
+    //             this.settings.speed = 0.4;
+    //             break;
+    //     }
+    // }
+
+    //self
+    // moveCam(x, y) {
+    //     this.elements.yaw.rotation.y -= x * 0.002;
+    //     this.elements.pitch.rotation.x += y * 0.002;
+    // }
+
+    // //self
+    // rndFlt(num, dec = 3) {
+    //     return parseFloat(num.toFixed(dec));
+    // }
+
+    // //self
+    // getPosRot() {
+    //     const posRaw = this.elements.pitch.getWorldPosition(new THREE.Vector3());
+    //     const rotRaw = new THREE.Euler().setFromQuaternion(this.elements.pitch.getWorldQuaternion(new THREE.Quaternion()));
+    //     return {
+    //         position: {
+    //             x: this.rndFlt(posRaw.x),
+    //             y: this.rndFlt(posRaw.y),
+    //             z: this.rndFlt(posRaw.z)
+    //         },
+    //         rotation: {
+    //             x: this.rndFlt(rotRaw._x),
+    //             y: this.rndFlt(rotRaw._y),
+    //             z: this.rndFlt(rotRaw._z)
+    //         }
+    //     };
+    // }
+
+
 }

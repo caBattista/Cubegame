@@ -3,168 +3,256 @@ class Simulator {
 
     constructor() {
         this.maps = {};
-        this.startChageCountValidation();
     }
 
-    offences = {
-        "tmcps": "too many changes per second",
-        "pmtf": "player movement to fast",
-        "pgna": "player gravity not active",
-        "pomb": "player outside map bounds",
-        "pim": "player inside Mesh"
+    addMap(mapId, callback) {
+
+        //##################### floor #####################
+        const meshFloor = new THREE.Mesh(new THREE.PlaneGeometry(250, 250, 10, 10));
+        meshFloor.rotation.x -= Math.PI / 2;
+
+        this.maps[mapId] = { players: {}, staticObjects: [meshFloor], change: false };
+
+        //calculation loop
+        this.maps[mapId].loop = setInterval(() => {
+            Object.keys(this.maps[mapId].players).forEach((key) => {
+                this.movePlayer(mapId, key);
+            });
+            if (this.maps[mapId].change === true) {
+                this.maps[mapId].change = false;
+                callback(this.getMapState(mapId));
+            }
+        }, Math.abs(1000 / 60));
+
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", mapId);
     }
 
-    addMap(mapId) {
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", mapId);
-        this.maps[mapId] = { players: {} };
+    movePlayer(mapId, playerId) {
+        const player = this.maps[mapId].players[playerId];
+        const speed = 1;
+
+        function moveDegRad(degRad) {
+            player.elements.yaw.position.add(
+                player.elements.yaw.getWorldDirection(new THREE.Vector3())
+                    .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
+                    .multiply(new THREE.Vector3(speed, 0, speed))
+            );
+        }
+        Object.entries(player.controls).forEach(([key, val]) => {
+            if (val.pressed === true) {
+                if (key === "controls_forward") { moveDegRad(0); this.maps[mapId].change = true; }
+                else if (key === "controls_right") { moveDegRad(-Math.PI / 2); this.maps[mapId].change = true; }
+                else if (key === "controls_backward") { moveDegRad(Math.PI); this.maps[mapId].change = true; }
+                else if (key === "controls_left") { moveDegRad(Math.PI / 2); this.maps[mapId].change = true; }
+                else if (key === "controls_jump") { player.elements.yaw.position.y += speed; this.maps[mapId].change = true; }
+            }
+        });
+
+        const gravity = 0.5;
+
+        // simplified Gravity
+        if (Math.abs(player.elements.yaw.position.x) > 125 || Math.abs(player.elements.yaw.position.z) > 125) {
+            player.elements.yaw.position.y -= gravity;
+            this.maps[mapId].change = true;
+        }
+        else if (player.elements.yaw.position.y < 1) {
+            player.elements.yaw.position.y = 1;
+            this.maps[mapId].change = true;
+        }
+        else if (player.elements.yaw.position.y > 1) {
+            player.elements.yaw.position.y -= gravity;
+            this.maps[mapId].change = true;
+        }
+    }
+
+    controlPlayer(playerId, change) {
+        const mapId = this.getMapIdOfPlayer(playerId);
+        const player = this.maps[mapId].players[playerId];
+
+        if (change.rotation) {
+            player.elements.yaw.rotation.y = change.rotation.x;
+            player.elements.pitch.rotation.x = change.rotation.y;
+            this.maps[mapId].change = true;
+        }
+
+        if (player.controls[change.action]) {
+            player.controls[change.action].pressed = change.pressed;
+            this.maps[mapId].change = true;
+        }
+
+        return true;
     }
 
     addPlayerToMap(playerId, mapId) {
-        // generate random Spawn
+        //create geometry
+        let elements = {};
+
+        const yaw = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+        elements.yaw = yaw;
+
+        const pitch = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+        yaw.add(pitch);
+        elements.pitch = pitch;
+
+        yaw.position.set((Math.random() * 199) - 99, 1, (Math.random() * 199) - 99);
+        yaw.rotation.y = 0;
+
+        pitch.rotation.x = Math.random() * 360;
+
+        //create player object
         this.maps[mapId].players[playerId] = {
-            offences: {},
-            posRot: {
-                position: {
-                    x: (Math.random() * 199) - 99,
-                    y: 1,
-                    z: (Math.random() * 199) - 99
-                },
-                rotation: {
-                    y: Math.random() * 360
-                }
+            controls: {
+                controls_forward: { pressed: false },
+                controls_right: { pressed: false },
+                controls_backward: { pressed: false },
+                controls_left: { pressed: false },
+                controls_jump: { pressed: false }
+            },
+            elements: elements,
+        };
+        return this.getMapState(mapId);
+    }
+
+    removePlayerFromMap(playerId) {
+        const mapOfPlayer = this.getMapIdOfPlayer(playerId);
+        if (mapOfPlayer) {
+            delete this.maps[mapOfPlayer].players[playerId];
+            console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapOfPlayer);
+        }
+        return mapOfPlayer ? this.getMapState(mapOfPlayer) : undefined;
+    }
+
+    getPlayers(mapId) {
+        const res = {};
+        Object.keys(this.maps[mapId].players).forEach(playerId => {
+            res[playerId] = this.getPlayer(playerId, mapId);
+        });
+        return res;
+    }
+
+    getPlayer(playerId, mapId) {
+        mapId = mapId ? mapId : this.getMapIdOfPlayer(playerId);
+        let playerElements = this.maps[mapId].players[playerId].elements;
+        return {
+            position: playerElements.yaw.position,
+            rotation: {
+                y: playerElements.yaw.rotation.y,
+                x: playerElements.pitch.rotation.x,
             }
         };
     }
 
-    removePlayer(playerId) {
-        const mapOfPlayer = this.getMapOfPlayer(playerId);
-        if (mapOfPlayer) {
-            delete this.maps[this.getMapOfPlayer(playerId)].players[playerId];
-            console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapOfPlayer);
-        }
-    }
+    getMapState(mapId) { return { players: this.getPlayers(mapId) }; }//to expand later
 
-    addOffence(player, OId) {
-        player.offences[OId] = player.offences[OId] > 0 ? ++player.offences[OId] : 1;
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "ADDED OFFENCE", player, OId);
-    }
+    getPlayersIdsOfMap(mapId) { return Object.keys(this.maps[mapId].players); }
 
-    getPlayers(callback) { // needs to be changed
-        const mapIds = Object.keys(this.maps);
-        const mapsLenth = mapIds.length;
-        for (let i = 0; i < mapsLenth; i++) {
-            const playerIds = Object.keys(this.maps[mapIds[i]].players);
-            for (let j = 0; j < playerIds.length; j++) {
-                callback(mapIds[i], playerIds[j]);
-                return;
-            }
-        }
-    }
-
-    getPlayer(playerId) {
-        let res = {};
-        res[playerId] = this.maps[this.getMapOfPlayer(playerId)].players[playerId]
+    getMapIdOfPlayer(playerId) {
+        let res = undefined;
+        Object.entries(this.maps).forEach(([mapId, map]) => {
+            if (Object.keys(map.players).includes(playerId)) { res = mapId; }
+        });
         return res;
     }
 
-    getPlayersIdsOfMap(mapId) {
-        return Object.keys(this.maps[mapId].players);
-    }
+    // changePlayer() {
+    //     //active abilities of player and other players need to be checked first
 
-    getMapOfPlayer(currentPlayerId) {
-        const mapIds = Object.keys(this.maps);
-        const mapsLenth = mapIds.length;
-        for (let i = 0; i < mapsLenth; i++) {
-            if (Object.keys(this.maps[mapIds[i]].players).includes(currentPlayerId)) {
-                return mapIds[i];
-            }
-        }
-    }
+    //     //checks if player is moving to fast
+    //     // const distance =
+    //     //     new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z).distanceTo(
+    //     //         new THREE.Vector3(player.posRot.position.x, player.posRot.position.y, player.posRot.position.z));
+    //     // if (distance > 0.6) { this.addOffence(player, "pmtf"); }
 
-    getMapState(mapId) {
-        return this.maps[mapId];
-    }
+    //     // //check if player gravity is active
+    //     // //needs check if player is jumping or not
+    //     // if (posRot.position.y > 0.5 /*player height*/ && distance < 0.6) {
+    //     //     this.addOffence(player, "pgna");
+    //     // }
 
-    changePlayer(playerId, posRot) {
-        const mapId = this.getMapOfPlayer(playerId);
-        if (!mapId) { return; }
-        const player = this.maps[mapId].players[playerId];
+    //     // //check if player is outside map bounds (only needs to be checked every second)
+    //     // if (posRot.position.x < -250 || posRot.position.x > 250 ||
+    //     //     posRot.position.y < -250 || posRot.position.y > 250 ||
+    //     //     posRot.position.z < -250 || posRot.position.z > 250
+    //     // ) { this.addOffence(player, "pomb"); }
 
-        if (player.posRot && player.position) {
+    //     // simplified Gravity
+    //     // if (Math.abs(posRot.position.x) > 125 || Math.abs(posRot.position.z) > 125) {
+    //     //     posRot.position.y -= this.settings.gravity;
+    //     // }
+    //     // else if (posRot.position.y < 1) {
+    //     //     posRot.position.y = 1;
+    //     // }
+    //     // else if (posRot.position.y > 1) {
+    //     //     posRot.position.y -= this.settings.gravity;
+    //     // }
 
-            //active abilities of player and other players need to be checked first
 
-            //checks if player is moving to fast
-            const distance =
-                new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z).distanceTo(
-                    new THREE.Vector3(player.posRot.position.x, player.posRot.position.y, player.posRot.position.z));
-            if (distance > 0.6) { this.addOffence(player, "pmtf"); }
+    //     //check if players inside other prohibited Mesh (example: bullt floor etc.)
+    //     //could also do the hit detection
+    //     /*
+    //     getProhibitedMeshesOfMap(mapId).forEach(mesh => {
+    //         const point = new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z) // Your point
+    //         const geometry = new THREE.BoxBufferGeometry(mesh.x, mesh.y, mesh.z)
+    //         const mesh = new THREE.Mesh(geometry)
+    //         const raycaster = new THREE.Raycaster()
+    //         raycaster.set(point, new THREE.Vector3(1, 1, 1))
+    //         if (raycaster.intersectObject(mesh).length % 2 === 1) { // Point is in objet
+    //             this.addOffence(player, "pim");
+    //         }
+    //     })
+    //     */
 
-            //check if player gravity is active
-            //needs check if player is jumping or not
-            if (posRot.position.y > 0.5 /*player height*/ && distance < 0.6) {
-                this.addOffence(player, "pgna");
-            }
+    //     // this.maps[mapId].players[playerId].changeCount++;
+    //     // this.maps[mapId].players[playerId].posRot = player.posRot;
 
-            //check if player is outside map bounds (only needs to be checked every second)
-            if (posRot.position.x < -250 || posRot.position.x > 250 ||
-                posRot.position.y < -250 || posRot.position.y > 250 ||
-                posRot.position.z < -250 || posRot.position.z > 250
-            ) { this.addOffence(player, "pomb"); }
+    //     //console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", JSON.stringify(this.maps[mapId].players[playerId], null, 1));
+    // }
 
-            //check if players inside other prohibited Mesh (example: bullt floor etc.)
-            //could also do the hit detection
-            /*
-            getProhibitedMeshesOfMap(mapId).forEach(mesh => {
-                const point = new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z) // Your point
-                const geometry = new THREE.BoxBufferGeometry(mesh.x, mesh.y, mesh.z)
-                const mesh = new THREE.Mesh(geometry)
-                const raycaster = new THREE.Raycaster()
-                raycaster.set(point, new THREE.Vector3(1, 1, 1))
-                if (raycaster.intersectObject(mesh).length % 2 === 1) { // Point is in objet
-                    this.addOffence(player, "pim");
-                }
-            })
-            */
-        }
+    // offences = {
+    //     "tmcps": "too many changes per second",
+    //     "pmtf": "player movement to fast",
+    //     "pgna": "player gravity not active",
+    //     "pomb": "player outside map bounds",
+    //     "pim": "player inside Mesh"
+    // }
 
-        this.maps[mapId].players[playerId].changeCount++;
-        this.maps[mapId].players[playerId].posRot = posRot;
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", JSON.stringify(this.maps, null, 1));
-    }
+    // addOffence(player, OId) {
+    //     player.offences[OId] = player.offences[OId] > 0 ? ++player.offences[OId] : 1;
+    //     console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "ADDED OFFENCE", player, OId);
+    // }
 
     //checks if players are running higher fps in game
-    startChageCountValidation() {
+    // startChageCountValidation() {
 
-        //set changecount of all palyers 0
-        this.getPlayers((mapId, playerId) => {
-            this.maps[mapId].players[playerId].changeCount = 0;
-        })
+    //     //set changecount of all palyers 0
+    //     this.getPlayers((mapId, playerId) => {
+    //         this.maps[mapId].players[playerId].changeCount = 0;
+    //     })
 
-        this.changeCountInterv = setInterval(() => {
-            this.getPlayers((mapId, playerId) => {
-                if (this.maps[mapId].players[playerId].changeCount > 60) {
-                    this.addOffence(this.maps[mapId].players[playerId], "tmcps");
-                }
-                this.maps[mapId].players[playerId].changeCount = 0;
-            })
-        }, 1000);
-    }
+    //     this.changeCountInterv = setInterval(() => {
+    //         this.getPlayers((mapId, playerId) => {
+    //             if (this.maps[mapId].players[playerId].changeCount > 60) {
+    //                 this.addOffence(this.maps[mapId].players[playerId], "tmcps");
+    //             }
+    //             this.maps[mapId].players[playerId].changeCount = 0;
+    //         })
+    //     }, 1000);
+    // }
 
-    stopChageCountValidation() {
-        clearInterval(this.changeCountInterv);
-    }
+    // stopChageCountValidation() {
+    //     clearInterval(this.changeCountInterv);
+    // }
 
-    removeOffenders() {
-        let res = [];
-        this.getPlayers((mapId, playerId) => {
-            const suspect = this.maps[mapId].players[playerId];
-            if (Object.keys(suspect.offences).length > 0) {
-                res.push({ id: playerId, offences: suspect.offences });
-                delete this.maps[mapId].players[playerId];
-            }
-        })
-        return res;
-    }
+    // removeOffenders() {
+    //     let res = [];
+    //     this.getPlayers((mapId, playerId) => {
+    //         const suspect = this.maps[mapId].players[playerId];
+    //         if (Object.keys(suspect.offences).length > 0) {
+    //             res.push({ id: playerId, offences: suspect.offences });
+    //             delete this.maps[mapId].players[playerId];
+    //         }
+    //     })
+    //     return res;
+    // }
 }
 module.exports = Simulator;

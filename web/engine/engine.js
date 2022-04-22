@@ -1,15 +1,15 @@
 class Engine {
     constructor(game, settings, characters, clientId) {
-        this.game = game;
 
-        this.addCid = url => { return url + "?client_id=" + clientId; };
+        this.game = game;
+        this.clientId = clientId;
+
+        this.addCid = url => { return url + "?client_id=" + this.clientId; };
 
         // ############# settings #############
 
         this.settings = settings;
         this.settings.useWireframe = false;
-        this.settings.physics = { gravity: 0.3 };
-        this.settings.self = { height: 0, speed: 0.2, turnSpeed: Math.PI * 0.005 };
         this.settings.player = { height: 0, speed: 0.2, turnSpeed: Math.PI * 0.005 };
         this.settings.bullet = { height: 0.4, speed: 2, end: 500, gravity: 0 };
 
@@ -30,13 +30,15 @@ class Engine {
         // ############# init process #############
 
         this.initLoadingManager();
-        this.manager.onLoad = () => {
+        this.manager.onLoad = () => {//restarts whenn new player comes
             this.initRenderer();
             this.initResizeHandler();
             this.startRender();
             const waitForRender = setInterval(() => {
                 if (this.renderloop) {
                     clearInterval(waitForRender);
+                    //remove onload or uexpected behavior when textures are loaded by a new player
+                    this.manager.onLoad = () => { };
                     this.game.ingameui.removeProgressBar();
                     this.game.ingameui.show();
                 }
@@ -51,17 +53,14 @@ class Engine {
         this.game.ingameui.createProgressBar();
         this.manager.onProgress = (url, itemsLoaded, itemsTotal) => {
             this.game.ingameui.updateProgressBar(itemsLoaded, itemsTotal, `
-                Loading: ${url.replace(/^.*[\\\/]/, '').split("?")[0]} ${itemsLoaded} of ${itemsTotal}
-            `);
+                Loading: ${url.replace(/^.*[\\\/]/, '').split("?")[0]} ${itemsLoaded} of ${itemsTotal}`);
         };
     }
 
     initScene() {
         this.scene = new THREE.Scene();
-        this.physics = new Pysics().init(this.settings);
         this.map = new Map().init(this.settings, this.manager, this.scene, this.physics);
-        this.self = new Self().init(this.settings, this.manager, this.scene, this.physics);
-        this.controls = new Controls().init(this.settings, this.self, this.game.ingameui.canvas);
+        this.controls = new Controls(this.settings, this.game.ingameui.canvas, this.game.ws);
     }
 
     initRenderer() {
@@ -77,34 +76,19 @@ class Engine {
 
     initResizeHandler() {
         window.addEventListener('resize', ev => {
-            this.self.elements.camera.aspect = window.innerWidth / window.innerHeight;
-            this.self.elements.camera.updateProjectionMatrix();
+            this.players[this.clientId].elements.camera.aspect = window.innerWidth / window.innerHeight;
+            this.players[this.clientId].elements.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
     }
 
     startRender() {
-
         this.stats0 = new Stats();
 
         const renderScene = () => {
             this.stats0.start();
-
             this.map.animate();
-
-            let changed = false;
-            let changes = {};
-
-            if (this.controls.animate(this.self)) {
-                changed = true;
-                changes.self = this.controls.posRot;
-            }
-            if (changed === true) { this.handleChanges1(changes); }
-
-            this.physics.animate();
-
-            this.renderer.render(this.scene, this.self.elements.camera);
-
+            this.renderer.render(this.scene, this.players[this.clientId].elements.camera);
             this.stats0.end();
         }
 
@@ -113,22 +97,34 @@ class Engine {
         }, 16);
     }
 
-    createMapState(mapState, clientId) {
-        this.self.set(mapState.players[clientId]);
-        delete mapState.players[clientId];
-        this.addPlayers(mapState.players);
+    createMapState(mapState) {
+        this.addPlayers(mapState.players, true);
     }
 
-    addPlayers(players) {
-        for (const [key, values] of Object.entries(players)) {
-            this.players[key] = new Player();
-            this.players[key].init(
-                this.settings,
-                this.manager,
-                this.scene,
-                this.physics);
-            this.players[key].set(values);
+    addPlayers(players, withSelf) {
+        for (const [key, value] of Object.entries(players)) {
+            if (withSelf === true && key === this.clientId) {
+                this.controls.setStartRotation(value.rotation);
+                this.players[key] = new Player();
+                this.players[key].init(
+                    "self",
+                    this.settings,
+                    this.manager,
+                    this.scene,
+                    this.physics);
+                this.players[key].set(value);
+            } else {
+                this.players[key] = new Player();
+                this.players[key].init(
+                    "player",
+                    this.settings,
+                    this.manager,
+                    this.scene,
+                    this.physics);
+                this.players[key].set(value);
+            }
         }
+        console.log("players", this.players)
     }
 
     updatePlayers(players) {
@@ -142,10 +138,6 @@ class Engine {
             this.scene.remove(this.players[key].elements.player);
             delete this.players[key];
         }
-    }
-
-    handleChanges(callback) {
-        this.handleChanges1 = callback;
     }
 
     dispose() {
