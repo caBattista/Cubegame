@@ -5,20 +5,23 @@ class Controls {
 
         // ################ Mouse (Camera movement) ################
 
-        this.rotation = { x: 0, y: 0 };//needs to be set from sever
-        this.rotationPrev = { x: 0, y: 0 };
+        this.rotation = { yaw: 0, pitch: 0 };
+        this.rotationPrev = { yaw: 0, pitch: 0 };
 
         //loop to throttle mouse move events sent to Server
         this.controlInterval = setInterval(() => {
-            if (this.rotation.x !== this.rotationPrev.x || this.rotation.y !== this.rotationPrev.y) {
+            if (this.rotation.yaw !== this.rotationPrev.yaw ||
+                this.rotation.pitch !== this.rotationPrev.pitch) {
                 this.ws.request("map", "playerControl", { rotation: this.rotation });
                 this.rotationPrev = JSON.parse(JSON.stringify(this.rotation));
             }
-        }, Math.abs(1000 / 60));//times per second
+        }, Math.abs(1000 / 30));//times per second
 
         const mouseMoveHandler = ev => {
-            this.rotation.x -= ev.movementX * 0.002;
-            this.rotation.y += ev.movementY * 0.002;
+            this.rotation.yaw -= ev.movementX * 0.002;
+            this.rotation.pitch += ev.movementY * 0.002;
+            this.player.elements.yaw.rotation.y = this.rotation.yaw;
+            this.player.elements.pitch.rotation.x = this.rotation.pitch;
         }
 
         const lockChange = (ev) => {
@@ -60,34 +63,13 @@ class Controls {
         });
     }
 
-    setStartRotation(rotation){
-        this.rotation.x = rotation.x;
-        this.rotation.y = rotation.y;
-        this.rotationPrev.x = rotation.x;
-        this.rotationPrev.y = rotation.y;
+    setStartRotation(rotation, player) {
+        this.player = player;
+        this.rotation.yaw = rotation.yaw;
+        this.rotation.pitch = rotation.pitch;
+        this.rotationPrev.yaw = rotation.yaw;
+        this.rotationPrev.pitch = rotation.pitch;
     }
-
-    // mapKeysFromSettings(controlSettings) {
-    //     let keyMap = {};
-    //     Object.entries(controlSettings).forEach(([key, val]) => {
-    //         if (key.split("_")[0] === "controls") {
-    //             keyMap[val] = { action: key, type: typeMap[key] };
-    //         }
-    //     });
-
-    //     return keyMap;
-    // }
-
-    // checkChange(prevPosRot, curentPosRot) {
-    //     return prevPosRot.position.x === curentPosRot.position.x &&
-    //         prevPosRot.position.y === curentPosRot.position.y &&
-    //         prevPosRot.position.z === curentPosRot.position.z &&
-    //         prevPosRot.rotation.x === curentPosRot.rotation.x &&
-    //         prevPosRot.rotation.y === curentPosRot.rotation.y &&
-    //         prevPosRot.rotation.z === curentPosRot.rotation.z
-    //         ? false : true;
-    // }
-    //Only Send Position and Veloctiy-Vector when changed
 
     // animate(player) {
     //     let doOrder = { set: [], fion: [], fifo: [] };

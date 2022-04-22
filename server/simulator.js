@@ -11,7 +11,7 @@ class Simulator {
         const meshFloor = new THREE.Mesh(new THREE.PlaneGeometry(250, 250, 10, 10));
         meshFloor.rotation.x -= Math.PI / 2;
 
-        this.maps[mapId] = { players: {}, staticObjects: [meshFloor], change: false };
+        this.maps[mapId] = { settings: { gravity: 0.5 }, players: {}, staticObjects: [meshFloor], change: false };
 
         //calculation loop
         this.maps[mapId].loop = setInterval(() => {
@@ -23,45 +23,47 @@ class Simulator {
                 callback(this.getMapState(mapId));
             }
         }, Math.abs(1000 / 60));
-
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", mapId);
     }
 
     movePlayer(mapId, playerId) {
-        const player = this.maps[mapId].players[playerId];
-        const speed = 1;
+        const map = this.maps[mapId];
+        const player = map.players[playerId];
 
         function moveDegRad(degRad) {
-            player.elements.yaw.position.add(
-                player.elements.yaw.getWorldDirection(new THREE.Vector3())
-                    .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-                    .multiply(new THREE.Vector3(speed, 0, speed))
+            player.elements.yaw.position.add(player.elements.yaw.getWorldDirection(new THREE.Vector3())
+                .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
+                .multiply(new THREE.Vector3(player.settings.speed, 0, player.settings.speed))
             );
+            map.change = true;
         }
+
         Object.entries(player.controls).forEach(([key, val]) => {
             if (val.pressed === true) {
-                if (key === "controls_forward") { moveDegRad(0); this.maps[mapId].change = true; }
-                else if (key === "controls_right") { moveDegRad(-Math.PI / 2); this.maps[mapId].change = true; }
-                else if (key === "controls_backward") { moveDegRad(Math.PI); this.maps[mapId].change = true; }
-                else if (key === "controls_left") { moveDegRad(Math.PI / 2); this.maps[mapId].change = true; }
-                else if (key === "controls_jump") { player.elements.yaw.position.y += speed; this.maps[mapId].change = true; }
+                if (key === "controls_forward") { moveDegRad(0); }
+                else if (key === "controls_right") { moveDegRad(-Math.PI / 2); }
+                else if (key === "controls_backward") { moveDegRad(Math.PI); }
+                else if (key === "controls_left") { moveDegRad(Math.PI / 2); }
+                else if (key === "controls_jump") { player.elements.yaw.position.y += player.settings.speed; map.change = true; }
+                else if (key === "controls_sprint") { player.settings.speed = 2 }
+            } else {
+                if (key === "controls_sprint") { player.settings.speed = 1 }
             }
         });
 
-        const gravity = 0.5;
-
         // simplified Gravity
-        if (Math.abs(player.elements.yaw.position.x) > 125 || Math.abs(player.elements.yaw.position.z) > 125) {
-            player.elements.yaw.position.y -= gravity;
-            this.maps[mapId].change = true;
+        if (Math.abs(player.elements.yaw.position.x) > 125 ||
+            Math.abs(player.elements.yaw.position.z) > 125) {//fall outside floor
+            player.elements.yaw.position.y -= map.settings.gravity;
+            map.change = true;
         }
-        else if (player.elements.yaw.position.y < 1) {
+        else if (player.elements.yaw.position.y < 1) {//floor
             player.elements.yaw.position.y = 1;
-            this.maps[mapId].change = true;
+            map.change = true;
         }
-        else if (player.elements.yaw.position.y > 1) {
-            player.elements.yaw.position.y -= gravity;
-            this.maps[mapId].change = true;
+        else if (player.elements.yaw.position.y > 1) {//fall to floor
+            player.elements.yaw.position.y -= map.settings.gravity;
+            map.change = true;
         }
     }
 
@@ -70,8 +72,8 @@ class Simulator {
         const player = this.maps[mapId].players[playerId];
 
         if (change.rotation) {
-            player.elements.yaw.rotation.y = change.rotation.x;
-            player.elements.pitch.rotation.x = change.rotation.y;
+            player.elements.yaw.rotation.y = change.rotation.yaw;
+            player.elements.pitch.rotation.x = change.rotation.pitch;
             this.maps[mapId].change = true;
         }
 
@@ -95,18 +97,20 @@ class Simulator {
         elements.pitch = pitch;
 
         yaw.position.set((Math.random() * 199) - 99, 1, (Math.random() * 199) - 99);
-        yaw.rotation.y = 0;
+        yaw.rotation.y = Math.random() * 360;
 
-        pitch.rotation.x = Math.random() * 360;
+        pitch.rotation.x = 0;
 
         //create player object
         this.maps[mapId].players[playerId] = {
+            settings: { speed: 1 },
             controls: {
                 controls_forward: { pressed: false },
                 controls_right: { pressed: false },
                 controls_backward: { pressed: false },
                 controls_left: { pressed: false },
-                controls_jump: { pressed: false }
+                controls_jump: { pressed: false },
+                controls_sprint: { pressed: false },
             },
             elements: elements,
         };
@@ -136,8 +140,8 @@ class Simulator {
         return {
             position: playerElements.yaw.position,
             rotation: {
-                y: playerElements.yaw.rotation.y,
-                x: playerElements.pitch.rotation.x,
+                yaw: playerElements.yaw.rotation.y,
+                pitch: playerElements.pitch.rotation.x,
             }
         };
     }

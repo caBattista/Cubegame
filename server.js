@@ -228,13 +228,6 @@
     if (res !== true) { wss.closeConnection(client.id, 4100, res); }
   });
 
-
-
-
-
-
-
-
   // wss.on("map", "change", (data, client, send) => {
   //   console.log("\x1b[33m%s\x1b[0m", "REQHANDLE:", "change");
   //   if (data.changes.self) {

@@ -85,21 +85,38 @@ class Player {
 
     //player
     set(data) {
+
+        //for smoothing
+        // let smothingData = {
+        //     dx: data.position.x - this.elements.yaw.position.x,
+        //     dy: data.position.x - this.elements.yaw.position.y,
+        //     dz: data.position.x - this.elements.yaw.position.z,
+        // }
+
         this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z);
-        this.elements.yaw.rotation.y = data.rotation.y;
-        this.elements.pitch.rotation.x = data.rotation.x;//cause becaus pitch was not defined for player
+
+        // setTimeout(() => {
+        //     this.elements.yaw.position.set(
+        //         data.position.x + smothingData.dx / 2,
+        //         data.position.y + smothingData.dy / 2,
+        //         data.position.z + smothingData.dz / 2);
+        // }, 8);
+
+        if (this.type === "player") {
+            this.elements.yaw.rotation.y = data.rotation.yaw;
+            this.elements.pitch.rotation.x = data.rotation.pitch;
+        }
+        //because pitch element was not defined for player
     }
 
-    // //self
-    // changespeeed(s) { this.settings.speed = s; }
-    // //self
-    // moveDegRad(degRad) {
+    // moveDegRad(degRad, speed) {
     //     this.elements.yaw.position.add(
     //         this.elements.camera.getWorldDirection(new THREE.Vector3())
     //             .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-    //             .multiply(new THREE.Vector3(this.settings.speed, 0, this.settings.speed))
+    //             .multiply(new THREE.Vector3(speed, 0, speed))
     //     );
     // }
+
     //self
     // do(option) {
     //     switch (option) {

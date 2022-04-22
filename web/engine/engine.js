@@ -104,7 +104,6 @@ class Engine {
     addPlayers(players, withSelf) {
         for (const [key, value] of Object.entries(players)) {
             if (withSelf === true && key === this.clientId) {
-                this.controls.setStartRotation(value.rotation);
                 this.players[key] = new Player();
                 this.players[key].init(
                     "self",
@@ -113,6 +112,7 @@ class Engine {
                     this.scene,
                     this.physics);
                 this.players[key].set(value);
+                this.controls.setStartRotation(value.rotation, this.players[key]);
             } else {
                 this.players[key] = new Player();
                 this.players[key].init(
@@ -124,7 +124,6 @@ class Engine {
                 this.players[key].set(value);
             }
         }
-        console.log("players", this.players)
     }
 
     updatePlayers(players) {
@@ -135,12 +134,13 @@ class Engine {
 
     removePlayers(players) {
         for (const [key, values] of Object.entries(players)) {
-            this.scene.remove(this.players[key].elements.player);
+            this.scene.remove(this.players[key].elements.yaw);
             delete this.players[key];
         }
     }
 
     dispose() {
+        clearInterval(this.controls.controlInterval)
         clearInterval(this.renderloop);
     }
 }
