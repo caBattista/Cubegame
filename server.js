@@ -1,8 +1,11 @@
 (async () => {//to be able to use await to define init order
+  //#################################### Heroku ####################################################
+  const heroku = process.env.PORT ? true : false;
 
   //#################################### Debug ####################################################
   //deactivate when run on heroku
-  //if (process.env.PORT) { console.log = function () { } }
+  //if (heroku) { console.log = function () { } }
+
 
   //#################################### Dependancies #############################################
 
@@ -21,7 +24,7 @@
 
   //Database init
   const Database = require("./server/database.js");
-  const db = new Database(config.database_dev);
+  const db = new Database(heroku ? config.database : config.database_dev);
   await db.init();
 
   //Webserver init
