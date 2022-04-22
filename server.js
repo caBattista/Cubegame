@@ -2,7 +2,7 @@
 
   //#################################### Debug ####################################################
   //deactivate when run on heroku
-  if (process.env.PORT) { console.log = function () { } }
+  //if (process.env.PORT) { console.log = function () { } }
 
   //#################################### Dependancies #############################################
 
