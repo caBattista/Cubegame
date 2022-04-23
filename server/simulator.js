@@ -22,7 +22,7 @@ class Simulator {
                 this.maps[mapId].change = false;
                 callback(this.getMapState(mapId));
             }
-        }, Math.abs(1000 / 60));
+        }, Math.abs(1000 / 10));
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", mapId);
     }
 
@@ -45,9 +45,9 @@ class Simulator {
                 else if (key === "controls_backward") { moveDegRad(Math.PI); }
                 else if (key === "controls_left") { moveDegRad(Math.PI / 2); }
                 else if (key === "controls_jump") { player.elements.yaw.position.y += player.settings.speed; map.change = true; }
-                else if (key === "controls_sprint") { player.settings.speed = 2 }
+                else if (key === "controls_sprint") { player.settings.speed = 8 }
             } else {
-                if (key === "controls_sprint") { player.settings.speed = 1 }
+                if (key === "controls_sprint") { player.settings.speed = 4 }
             }
         });
 
@@ -103,7 +103,7 @@ class Simulator {
 
         //create player object
         this.maps[mapId].players[playerId] = {
-            settings: { speed: 1 },
+            settings: { speed: 4 },
             controls: {
                 controls_forward: { pressed: false },
                 controls_right: { pressed: false },

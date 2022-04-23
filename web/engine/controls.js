@@ -15,7 +15,7 @@ class Controls {
                 this.ws.request("map", "playerControl", { rotation: this.rotation });
                 this.rotationPrev = JSON.parse(JSON.stringify(this.rotation));
             }
-        }, Math.abs(1000 / 30));//times per second
+        }, Math.abs(1000 / 10));//times per second
 
         const mouseMoveHandler = ev => {
             this.rotation.yaw -= ev.movementX * 0.002;

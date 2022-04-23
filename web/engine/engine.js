@@ -94,7 +94,7 @@ class Engine {
 
         this.renderloop = setInterval(() => {
             requestAnimationFrame(() => { renderScene(); });
-        }, 16);
+        }, 8);
     }
 
     createMapState(mapState) {

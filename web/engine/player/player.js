@@ -11,6 +11,8 @@ class Player {
             "engine/player/textures/Metal06_rgh.jpg": { type: "texture" },
             "engine/player/textures/Metal06_met.jpg": { type: "texture" }
         }
+        this.prevPos = { x: 0, y: 0, z: 0 };
+        this.timer = new Date('Jan 1, 1970, 00:00:00.000 GMT');
         this.loadTextures(manager);
         this.createElements(scene);
         return this;
@@ -85,22 +87,56 @@ class Player {
 
     //player
     set(data) {
+        // clearInterval(this.smoothingInterval);      
 
-        //for smoothing
-        // let smothingData = {
-        //     dx: data.position.x - this.elements.yaw.position.x,
-        //     dy: data.position.x - this.elements.yaw.position.y,
-        //     dz: data.position.x - this.elements.yaw.position.z,
+        // let deltas = {
+        //     x: data.position.x - this.prevPos.x,
+        //     y: data.position.y - this.prevPos.y,
+        //     z: data.position.z - this.prevPos.z,
         // }
 
-        this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z);
+        // //for smoothing
+        // this.prevPos = {
+        //     x: data.position.x,
+        //     y: data.position.y,
+        //     z: data.position.z,
+        // }
 
-        // setTimeout(() => {
-        //     this.elements.yaw.position.set(
-        //         data.position.x + smothingData.dx / 2,
-        //         data.position.y + smothingData.dy / 2,
-        //         data.position.z + smothingData.dz / 2);
-        // }, 8);
+        // this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z);
+
+        // if (window.smoothing) {
+        //     let count = window.smoothing.count;
+        //     this.smoothingInterval = setInterval(() => {
+        //         this.elements.yaw.position.set(
+        //             this.elements.yaw.position.x + deltas.x / window.smoothing.div,
+        //             this.elements.yaw.position.y + deltas.y / window.smoothing.div,
+        //             this.elements.yaw.position.z + deltas.z / window.smoothing.div);
+        //         count--;
+        //         if (count-- <= 0) { clearInterval(this.smoothingInterval); }
+        //     }, window.smoothing.interval);
+        // }
+        window.smoothing = {count: 13, interval: 8, div : 13};
+        if (window.smoothing) {
+
+            let deltas = {
+                x: data.position.x - this.elements.yaw.position.x,
+                y: data.position.y - this.elements.yaw.position.y,
+                z: data.position.z - this.elements.yaw.position.z,
+            }
+            let count = window.smoothing.count;
+
+            clearInterval(this.smoothingInterval);
+
+            this.smoothingInterval = setInterval(() => {
+                this.elements.yaw.position.set(
+                    this.elements.yaw.position.x + deltas.x / window.smoothing.div,
+                    this.elements.yaw.position.y + deltas.y / window.smoothing.div,
+                    this.elements.yaw.position.z + deltas.z / window.smoothing.div);
+                count--;
+                if (count <= 0) { clearInterval(this.smoothingInterval); }
+            }, window.smoothing.interval);
+        }
+        else { this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z); }
 
         if (this.type === "player") {
             this.elements.yaw.rotation.y = data.rotation.yaw;
