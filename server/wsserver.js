@@ -11,6 +11,10 @@ class WSServer {
     //same port as express
     this.wss = new WebSocket.Server({ server: server, clientTracking: false });
 
+    //for debug
+    this.debug = { bytesSent: 0, bytesRecieved: 0, bytesSentPrev : 0, bytesRecievedPrev : 0 };
+    this.getDebug();
+
     console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "STARTED");
 
     //Handle Ping to keep websockets open
@@ -31,6 +35,7 @@ class WSServer {
 
       //on message
       ws.on('message', RawData => {
+        this.updateDebug("", RawData);
         RawData = JSON.parse(RawData);
         if (["map"].indexOf(RawData.topic) === -1) {
           console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "RECIEVED FROM ", client.id, "\n", RawData);
@@ -52,6 +57,7 @@ class WSServer {
 
       //on close
       ws.on('close', RawData => {
+        this.updateDebug("", RawData);
         RawData = JSON.parse(RawData);
         console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", `CLIENT ${client.id} DISCONNECTED: ${RawData}`);
         const handler = this.handlers["websocket"]["disconnect"];
@@ -74,10 +80,12 @@ class WSServer {
   send(client, topic, action, status, data) {
     const response = { topic: topic, action: action, status: status };
     if (data) { response.data = data; }
-    client.ws.send(JSON.stringify(response));
+    var toSend = JSON.stringify(response);
+    client.ws.send(toSend);
     if (["map"].indexOf(topic) === -1) {
       console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:", "SEND TO ", client.id, "\n", response);
     }
+    this.updateDebug(toSend);
   }
 
   closeConnection(id, code, reason) {
@@ -87,6 +95,34 @@ class WSServer {
       this.clients[id].ws.close(code, reason);
       res();
     });
+  }
+
+  updateDebug(dataSent = "", dataRecieved = "") {
+    this.debug.bytesSent += Buffer.byteLength(String(dataSent), "utf-8");
+    this.debug.bytesRecieved += Buffer.byteLength(String(dataRecieved), "utf-8");
+  }
+
+  getDebug(){
+    setInterval(() => {
+      function formatBytes(bytes, decimals = 3) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+      }
+
+      this.debug.dataPerSecondSent = this.debug.bytesSent - this.debug.bytesSentPrev;
+      this.debug.dataPerSecondRecieved = this.debug.bytesRecieved - this.debug.bytesRecievedPrev;
+      this.debug.bytesSentPrev = this.debug.bytesSent;
+      this.debug.bytesRecievedPrev = this.debug.bytesRecieved;
+
+      console.log("\x1b[36m%s\x1b[0m", "WEBSOCKET:",
+        "SENT", formatBytes(this.debug.bytesSent), formatBytes(this.debug.dataPerSecondSent),
+        "/S RECIEVED", formatBytes(this.debug.bytesRecieved), 
+        formatBytes(this.debug.dataPerSecondRecieved),"/S");
+    }, 1000);
   }
 
 }

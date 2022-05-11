@@ -1,28 +1,5 @@
 class Stats {
-    constructor(rd = 0, udInt = 100, opt = 0) {
-        this.rd = rd;
-        this.vals = [];
-        this.msFr = 0;
-        this.msBtFr = 0;
-        this.interv = setInterval(() => {
-            let avMsFr = 0;
-            let avMsBtFr = 0;
-            for (var i = 0; i < this.vals.length; i++) {
-                avMsFr += this.vals[i].msFr;
-                avMsBtFr += this.vals[i].msBtFr;
-            }
-            avMsFr /= i;
-            avMsBtFr /= i;
-
-            const fps = Number((1000 / avMsBtFr).toFixed(rd));
-            const msBtFr = Number(avMsBtFr.toFixed(rd));
-            const msFr = Number(avMsFr.toFixed(rd));
-
-            this.textCont.textContent = `fps: ${fps} msBtFr: ${msBtFr} msFr: ${msFr}`;
-            this.barCont.style.width = msBtFr * 5 + "px";
-            this.bar.style.width = msFr * 5 + "px";
-
-        }, udInt);
+    constructor(roundToDecimals = 2, updateInterval = 500) {
 
         //Add to Dom
         this.statsCont = document.createElement("div");
@@ -37,16 +14,36 @@ class Stats {
 
         this.bar = document.createElement("div");
         this.barCont.appendChild(this.bar);
+
+        this.roundToDecimals = roundToDecimals;
+        this.vals = [];
+        this.msFr = 0;
+        this.msBtFr = 0;
+        this.interv = setInterval(() => {
+            let avMsFr = 0;
+            let avMsBtFr = 0;
+            this.vals.forEach(val => {
+                avMsFr += val.msFr;
+                avMsBtFr += val.msBtFr;
+            });
+            avMsFr /= this.vals.length;
+            avMsBtFr /= this.vals.length;
+            this.vals = [];
+
+            const fps = Number((1000 / avMsBtFr).toFixed(roundToDecimals));
+            const msBtFr = Number(avMsBtFr.toFixed(roundToDecimals));
+            const msFr = Number(avMsFr.toFixed(roundToDecimals));
+
+            this.textCont.innerHTML = `FPS: ${fps} <br> msBtFr: ${msBtFr} <br> msFr: ${msFr} <br>`;
+            this.barCont.style.width = msBtFr * 5 + "px";
+            this.bar.style.width = msFr * 5 + "px";
+
+        }, updateInterval);
     }
-    start() {
-        this.t0 = window.performance.now();
-    }
+    start() { this.t0 = window.performance.now(); }
     end() {
         let now = window.performance.now();
         this.vals.push({ msFr: (now - this.t0), msBtFr: (now - this.t1) });
-        if (this.vals.length > 10) {
-            this.vals.shift();
-        }
         this.t1 = now;
     }
     stop() {

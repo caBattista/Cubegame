@@ -19,7 +19,7 @@ class Ws {
             this.ws.onopen = () => {
                 this.ws.onmessage = e => {
                     const msg = JSON.parse(e.data);
-                    if (["map"].indexOf(msg.topic) === -1) { console.log("WS GOT: ", msg); }
+                    if (["map"].indexOf(msg.topic) === -1 || true) { console.log("WS GOT: ", msg); }
                     const handler = this.handlers[msg.topic] ? this.handlers[msg.topic][msg.action] : null;
                     if (typeof handler === "function") { handler(msg.status, msg.data); }
                     else { console.log(`WS: Message handler for topic '${msg.topic}' action '${msg.action}' not found`) }

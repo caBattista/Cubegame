@@ -1,12 +1,14 @@
 class Controls {
 
-    constructor(settings, domElement, ws) {
+    constructor(settings, domElement, ws, player) {
         this.ws = ws;
+        this.player = player;
 
         // ################ Mouse (Camera movement) ################
 
-        this.rotation = { yaw: 0, pitch: 0 };
-        this.rotationPrev = { yaw: 0, pitch: 0 };
+        //set start rotation
+        this.rotation = { yaw: this.player.elements.yaw.rotation.y, pitch: this.player.elements.pitch.rotation.x };
+        this.rotationPrev = { yaw: this.player.elements.yaw.rotation.y, pitch: this.player.elements.pitch.rotation.x };
 
         //loop to throttle mouse move events sent to Server
         this.controlInterval = setInterval(() => {
@@ -15,13 +17,19 @@ class Controls {
                 this.ws.request("map", "playerControl", { rotation: this.rotation });
                 this.rotationPrev = JSON.parse(JSON.stringify(this.rotation));
             }
-        }, Math.abs(1000 / 10));//times per second
+        }, 1000 / 30);
+
+        // setInterval(() => {
+        //     this.rotation.yaw -= 1 * 0.002;
+        //     this.rotation.pitch += 1 * 0.002;
+        // }, 8);
 
         const mouseMoveHandler = ev => {
-            this.rotation.yaw -= ev.movementX * 0.002;
-            this.rotation.pitch += ev.movementY * 0.002;
-            this.player.elements.yaw.rotation.y = this.rotation.yaw;
-            this.player.elements.pitch.rotation.x = this.rotation.pitch;
+            this.rotation.yaw = this.cleanRotation(this.rotation.yaw - ev.movementX * 0.002);
+            this.rotation.pitch = this.cleanRotation(this.rotation.pitch + ev.movementY * 0.002);
+            //control camera immediately
+            // this.player.elements.yaw.rotation.y = this.rotation.yaw;
+            // this.player.elements.pitch.rotation.x = this.rotation.pitch;
         }
 
         const lockChange = (ev) => {
@@ -63,12 +71,10 @@ class Controls {
         });
     }
 
-    setStartRotation(rotation, player) {
-        this.player = player;
-        this.rotation.yaw = rotation.yaw;
-        this.rotation.pitch = rotation.pitch;
-        this.rotationPrev.yaw = rotation.yaw;
-        this.rotationPrev.pitch = rotation.pitch;
+    cleanRotation(rotation) {
+        // if (rotation >= 2 * Math.PI) { rotation -= 2 * Math.PI }
+        // if (rotation < 0) { rotation += 2 * Math.PI }
+        return Math.round(rotation * 100000) / 100000;
     }
 
     // animate(player) {

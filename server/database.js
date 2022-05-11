@@ -101,10 +101,10 @@ class Database {
     addMap(map) {
         return new Promise((res, rej) => {
             this.pgClient.query(`
-            INSERT INTO maps(id, type, max_players, players) 
-            VALUES (uuid_generate_v4(), $1, $2, $3)
-            RETURNING id`,
-                [map.type, map.max_players, 0])
+            INSERT INTO maps(id, type, max_players, players, settings, static_objects) 
+            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5)
+            RETURNING *`,
+                [map.type, map.max_players, map.players, JSON.stringify(map.settings), JSON.stringify(map.static_objects)])
                 .then((pgRes => { res(pgRes.rows); }))
                 .catch(err => { rej(this.handleError(err)); })
         });

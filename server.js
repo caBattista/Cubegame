@@ -1,3 +1,5 @@
+const { FontLoader } = require('./server/three.js');
+
 (async () => {//to be able to use await to define init order
   //#################################### Heroku ####################################################
   const heroku = process.env.PORT ? true : false;
@@ -5,7 +7,6 @@
   //#################################### Debug ####################################################
   //deactivate when run on heroku
   //if (heroku) { console.log = function () { } }
-
 
   //#################################### Dependancies #############################################
 
@@ -39,11 +40,15 @@
   //Webserver (complete init)
   webserver.hostFiles({ joi: joi, db: db, wss: wss });
 
-  //#################################### Simulator ##############################################
-
+  //Simulator
   const Simulator = require("./server/simulator.js");
   //const { settings } = require('cluster');
   const sim = new Simulator();
+
+  //load maps into Sim
+  db.getMaps().then(dbRes => {
+    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMap(map.id); }); }
+  });
 
   //#################################### Request handling #######################################
 
@@ -131,20 +136,12 @@
 
   // ######################################## Main Menu ########################################
 
-  // Maps ########################################
-
   wss.on("maps", "create", (data, client, send) => {
-    db.addMap({ type: data.type, max_players: 10 })
-      .then(dbRes => {
-        if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
-        sim.addMap(dbRes[0].id, mapState => {
-          //send update to every player on change
-          Object.keys(mapState.players).forEach(playerId => {
-            wss.send(wss.clients[playerId], "map", "updatePlayers", "success", sim.getPlayers(dbRes[0].id))
-          })
-        });
-        send("success");
-      });
+    db.addMap(JSON.parse(require('fs').readFileSync('web/maps/mountainwaters/map.json'))).then(dbRes => {
+      if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
+      sim.addMap(dbRes[0]);
+      send("success");
+    });
   });
 
   wss.on("maps", "get", (data, client, send) => {
@@ -201,15 +198,23 @@
   wss.on("map", "join", (data, client, send) => {
     //Add client to map in simulator
     const mapState = sim.addPlayerToMap(client.id, data.mapId);
-    //Send map state to client
-    send("success", mapState);
-    //remove client from map state
-    delete mapState.players[client.id];
     //send map state to everyone but client
     Object.keys(mapState.players).forEach(playerId => {
-      wss.send(wss.clients[playerId], "map", "addPlayers", "success",
-        { [client.id]: sim.getPlayer(client.id) })
+      if (playerId !== client.id) {
+        wss.send(wss.clients[playerId], "map", "addPlayers", "success", { [client.id]: sim.getPlayer(client.id) })
+      }
     })
+    //start map if first one
+    if (Object.keys(mapState.players).length == 1) {
+      sim.startMap(data.mapId, mapState => {
+        //send update to every player on change
+        Object.keys(mapState.players).forEach(playerId => {
+          wss.send(wss.clients[playerId], "map", "updatePlayers", "success", sim.getPlayers(data.mapId))
+        })
+      });
+    }
+    //Send map state to client
+    send("success", { mapState: mapState, static_objects: sim.maps[data.mapId].static_objects });
   });
 
   wss.on("map", "leave", (data, client, send) => {
@@ -217,8 +222,11 @@
     const mapState = sim.removePlayerFromMap(client.id);
     //send info to other clients
     Object.keys(mapState.players).forEach(playerId => {
-      wss.send(wss.clients[playerId], "map", "removePlayers", "success", sim.getPlayer(client.id))
+      wss.send(wss.clients[playerId], "map", "removePlayers", "success", { [client.id]: {} })
     })
+    console.log(mapState)
+    //stop map if last one
+    if (Object.keys(mapState.players).length < 1) { sim.stopMap(mapState.id); }
     //send success to client
     send("success");
   });

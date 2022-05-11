@@ -2,17 +2,18 @@ class Player {
 
     constructor() { }
 
-    init(type, settings, manager, scene, physics) {
+    init(type, settings, manager, scene) {
         this.type = type;
         this.elements = {};
         this.settings = settings.player;
+        this.scene = scene;
+        //needs count to be as big as div since set timeout waits for execution
+        this.smoothing = { interval: 16, div: 3 };
         this.textures = {
             "engine/player/textures/Metal06_nrm.jpg": { type: "texture" },
             "engine/player/textures/Metal06_rgh.jpg": { type: "texture" },
             "engine/player/textures/Metal06_met.jpg": { type: "texture" }
         }
-        this.prevPos = { x: 0, y: 0, z: 0 };
-        this.timer = new Date('Jan 1, 1970, 00:00:00.000 GMT');
         this.loadTextures(manager);
         this.createElements(scene);
         return this;
@@ -66,7 +67,7 @@ class Player {
         );
         pitch.receiveShadow = true;
         pitch.castShadow = true;
-
+        //pitch.rotation.set(0, Math.PI, 0);
         yaw.add(pitch);
         this.elements.pitch = pitch;
 
@@ -85,73 +86,51 @@ class Player {
         scene.add(yaw)
     }
 
-    //player
+    //sets the player to the specified position and rotation immediately
     set(data) {
-        // clearInterval(this.smoothingInterval);      
-
-        // let deltas = {
-        //     x: data.position.x - this.prevPos.x,
-        //     y: data.position.y - this.prevPos.y,
-        //     z: data.position.z - this.prevPos.z,
-        // }
-
-        // //for smoothing
-        // this.prevPos = {
-        //     x: data.position.x,
-        //     y: data.position.y,
-        //     z: data.position.z,
-        // }
-
-        // this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z);
-
-        // if (window.smoothing) {
-        //     let count = window.smoothing.count;
-        //     this.smoothingInterval = setInterval(() => {
-        //         this.elements.yaw.position.set(
-        //             this.elements.yaw.position.x + deltas.x / window.smoothing.div,
-        //             this.elements.yaw.position.y + deltas.y / window.smoothing.div,
-        //             this.elements.yaw.position.z + deltas.z / window.smoothing.div);
-        //         count--;
-        //         if (count-- <= 0) { clearInterval(this.smoothingInterval); }
-        //     }, window.smoothing.interval);
-        // }
-        window.smoothing = {count: 13, interval: 8, div : 13};
-        if (window.smoothing) {
-
-            let deltas = {
-                x: data.position.x - this.elements.yaw.position.x,
-                y: data.position.y - this.elements.yaw.position.y,
-                z: data.position.z - this.elements.yaw.position.z,
-            }
-            let count = window.smoothing.count;
-
-            clearInterval(this.smoothingInterval);
-
-            this.smoothingInterval = setInterval(() => {
-                this.elements.yaw.position.set(
-                    this.elements.yaw.position.x + deltas.x / window.smoothing.div,
-                    this.elements.yaw.position.y + deltas.y / window.smoothing.div,
-                    this.elements.yaw.position.z + deltas.z / window.smoothing.div);
-                count--;
-                if (count <= 0) { clearInterval(this.smoothingInterval); }
-            }, window.smoothing.interval);
-        }
-        else { this.elements.yaw.position.set(data.position.x, data.position.y, data.position.z); }
-
-        if (this.type === "player") {
-            this.elements.yaw.rotation.y = data.rotation.yaw;
-            this.elements.pitch.rotation.x = data.rotation.pitch;
-        }
-        //because pitch element was not defined for player
+        this.elements.yaw.position.x = data.position.x;
+        this.elements.yaw.position.y = data.position.y;
+        this.elements.yaw.position.z = data.position.z;
+        //if (this.type === "self") { return; }
+        this.elements.yaw.rotation.y = data.rotation.yaw;
+        this.elements.pitch.rotation.x = data.rotation.pitch;
     }
 
-    // moveDegRad(degRad, speed) {
-    //     this.elements.yaw.position.add(
-    //         this.elements.camera.getWorldDirection(new THREE.Vector3())
-    //             .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-    //             .multiply(new THREE.Vector3(speed, 0, speed))
-    //     );
-    // }
+    //moves the player to the specified position and rotation in a smoothed way
+    moveTo(data) {
+        clearInterval(this.smoothingInterval);
+        //calculate step values (distance to move in steps between frames)
+        this.smoothing.step = {
+            x: (data.position.x - this.elements.yaw.position.x) / this.smoothing.div,
+            y: (data.position.y - this.elements.yaw.position.y) / this.smoothing.div,
+            z: (data.position.z - this.elements.yaw.position.z) / this.smoothing.div,
+            yaw: (data.rotation.yaw - this.elements.yaw.rotation.y) / this.smoothing.div,
+            pitch: (data.rotation.pitch - this.elements.pitch.rotation.x) / this.smoothing.div
+        }
+        let index = this.smoothing.div;
+        this.moveStep();
+        index--;
+        this.smoothingInterval = setInterval(() => {
+            if (index <= 0) {
+                clearInterval(this.smoothingInterval);
+                this.set(data);
+            }
+            else {
+                this.moveStep();
+                index--;
+            }
+        }, this.smoothing.interval);
+    }
+
+    //moves the player one step according to the steps
+    moveStep() {
+        this.elements.yaw.position.x += this.smoothing.step.x;
+        this.elements.yaw.position.y += this.smoothing.step.y;
+        this.elements.yaw.position.z += this.smoothing.step.z;
+        //if (this.type === "self") { return; }
+        this.elements.yaw.rotation.y += this.smoothing.step.yaw;
+        this.elements.pitch.rotation.x += this.smoothing.step.pitch;
+    }
 
     //self
     // do(option) {

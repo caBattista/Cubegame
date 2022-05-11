@@ -15,8 +15,8 @@ class Game {
 
         //Login (Websocket is started and added to Game after submit)
         await this.loader.load("ui/login/login", 1);
-        await new Login(this).login();
-        //await new Login(this).autoLogin("test", "test", "login");
+        //await new Login(this).login();
+        await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
     
         //Mainmenu
@@ -61,10 +61,12 @@ class Game {
         await this.loader.load("engine/player/player");
         await this.loader.load("maps/mountainwaters/water");//needs to be according to mapid
         await this.loader.load("maps/mountainwaters/map");
-        const mapState = await this.ws.request("map", "join", { mapId: mapId });
+        const res = await this.ws.request("map", "join", { mapId: mapId });
+        const mapState = res.mapState;
+        window.static_objects = res.static_objects;
         const settings = await this.ws.request("settings", "get");
         const characters = await this.ws.request("characters", "get");
-        this.engine = new Engine(this, settings, characters, this.loader.client_id);
+        this.engine = new Engine(this, settings, characters, this.loader.client_id, static_objects);
         this.engine.createMapState(mapState, this.loader.client_id);
         this.ws.on("map", "addPlayers", (status, data, send) => {
             this.engine.addPlayers(data);
@@ -87,5 +89,6 @@ class Game {
         document.body.innerHTML = "";
         await this.ws.request("map", "leave", { mapId: this.currentMap });
         await this.mainmenu.start();
+        console.log("leave");
     }
 } 

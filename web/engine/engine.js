@@ -1,17 +1,18 @@
 class Engine {
-    constructor(game, settings, characters, clientId) {
+    constructor(game, settings, characters, clientId, static_objects) {
 
         this.game = game;
         this.clientId = clientId;
+        console.log(clientId);
 
         this.addCid = url => { return url + "?client_id=" + this.clientId; };
 
         // ############# settings #############
 
         this.settings = settings;
+        this.settings.interval = Math.abs(1000 / 60);
         this.settings.useWireframe = false;
-        this.settings.player = { height: 0, speed: 0.2, turnSpeed: Math.PI * 0.005 };
-        this.settings.bullet = { height: 0.4, speed: 2, end: 500, gravity: 0 };
+        this.settings.player = { height: 0 };
 
         // ############# characters #############
 
@@ -44,7 +45,7 @@ class Engine {
                 }
             }, 100);
         };
-        this.initScene();
+        this.initScene(static_objects);
     }
 
     initLoadingManager() {
@@ -57,10 +58,9 @@ class Engine {
         };
     }
 
-    initScene() {
+    initScene(static_objects) {
         this.scene = new THREE.Scene();
-        this.map = new Map().init(this.settings, this.manager, this.scene, this.physics);
-        this.controls = new Controls(this.settings, this.game.ingameui.canvas, this.game.ws);
+        this.map = new Map().init(this.settings, this.manager, this.scene, static_objects, this);
     }
 
     initRenderer() {
@@ -83,18 +83,15 @@ class Engine {
     }
 
     startRender() {
-        this.stats0 = new Stats();
-
-        const renderScene = () => {
-            this.stats0.start();
-            this.map.animate();
-            this.renderer.render(this.scene, this.players[this.clientId].elements.camera);
-            this.stats0.end();
-        }
-
+        this.stats = new Stats();
         this.renderloop = setInterval(() => {
-            requestAnimationFrame(() => { renderScene(); });
-        }, 8);
+            this.renderer.render(this.scene, this.players[this.clientId].elements.camera);
+            requestAnimationFrame(() => {
+                this.stats.start();
+                this.map.animate();
+                this.stats.end();
+            });
+        }, this.settings.interval);
     }
 
     createMapState(mapState) {
@@ -109,18 +106,16 @@ class Engine {
                     "self",
                     this.settings,
                     this.manager,
-                    this.scene,
-                    this.physics);
+                    this.scene);
                 this.players[key].set(value);
-                this.controls.setStartRotation(value.rotation, this.players[key]);
+                this.controls = new Controls(this.settings, this.game.ingameui.canvas, this.game.ws, this.players[key]);
             } else {
                 this.players[key] = new Player();
                 this.players[key].init(
                     "player",
                     this.settings,
                     this.manager,
-                    this.scene,
-                    this.physics);
+                    this.scene);
                 this.players[key].set(value);
             }
         }
@@ -128,7 +123,7 @@ class Engine {
 
     updatePlayers(players) {
         for (const [key, values] of Object.entries(players)) {
-            this.players[key].set(values);
+            this.players[key].moveTo(values);
         }
     }
 

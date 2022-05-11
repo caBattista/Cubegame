@@ -1,3 +1,4 @@
+const { map } = require("joi/lib/types/symbol");
 const THREE = require("./three.js");
 class Simulator {
 
@@ -5,14 +6,32 @@ class Simulator {
         this.maps = {};
     }
 
-    addMap(mapId, callback) {
+    addMap(map) {
+        this.maps[map.id] = {
+            players: {}, change: false,
+            settings: map.settings,
+            staticObjects: [],
+            static_objects : map.static_objects
+        };
+        map.static_objects.forEach(object => {
+            this.maps[map.id].staticObjects.push(this.createMeshFromObject(object));
+        })
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", map.id, this.maps[map.id].staticObjects);
+    }
 
-        //##################### floor #####################
-        const meshFloor = new THREE.Mesh(new THREE.PlaneGeometry(250, 250, 10, 10));
-        meshFloor.rotation.x -= Math.PI / 2;
+    createMeshFromObject(static_object) {
+        const object = Object.assign({}, static_object)
+        delete object.material;
+        delete object.images;
+        delete object.textures;
+        delete object.object.material;
+        const loader = new THREE.ObjectLoader();
+        const mesh = loader.parse(object);
+        mesh.updateMatrixWorld(true);//important for raycaster (force calculates Matrix without render)
+        return mesh;
+    }
 
-        this.maps[mapId] = { settings: { gravity: 0.5 }, players: {}, staticObjects: [meshFloor], change: false };
-
+    startMap(mapId, callback) {
         //calculation loop
         this.maps[mapId].loop = setInterval(() => {
             Object.keys(this.maps[mapId].players).forEach((key) => {
@@ -22,8 +41,13 @@ class Simulator {
                 this.maps[mapId].change = false;
                 callback(this.getMapState(mapId));
             }
-        }, Math.abs(1000 / 10));
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", mapId);
+        }, 1000 / 30);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STARTED MAP", mapId);
+    }
+
+    stopMap(mapId) {
+        clearInterval(this.maps[mapId].loop);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STOPPED MAP", mapId, mapId);
     }
 
     movePlayer(mapId, playerId) {
@@ -31,39 +55,43 @@ class Simulator {
         const player = map.players[playerId];
 
         function moveDegRad(degRad) {
-            player.elements.yaw.position.add(player.elements.yaw.getWorldDirection(new THREE.Vector3())
-                .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-                .multiply(new THREE.Vector3(player.settings.speed, 0, player.settings.speed))
+            player.elements.yaw.position.add(
+                player.elements.yaw.getWorldDirection(new THREE.Vector3())
+                    .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
+                    .multiply(new THREE.Vector3(player.settings.speed, 0, player.settings.speed))
             );
+
+            player.elements.yaw.position.x = Math.round(player.elements.yaw.position.x * 1000) / 1000;
+            player.elements.yaw.position.y = Math.round(player.elements.yaw.position.y * 1000) / 1000;
+            player.elements.yaw.position.z = Math.round(player.elements.yaw.position.z * 1000) / 1000;
+
             map.change = true;
         }
 
+        let jump = false;
         Object.entries(player.controls).forEach(([key, val]) => {
             if (val.pressed === true) {
                 if (key === "controls_forward") { moveDegRad(0); }
                 else if (key === "controls_right") { moveDegRad(-Math.PI / 2); }
                 else if (key === "controls_backward") { moveDegRad(Math.PI); }
                 else if (key === "controls_left") { moveDegRad(Math.PI / 2); }
-                else if (key === "controls_jump") { player.elements.yaw.position.y += player.settings.speed; map.change = true; }
-                else if (key === "controls_sprint") { player.settings.speed = 8 }
+                else if (key === "controls_jump") { jump = true; player.elements.yaw.position.y += player.settings.speed; map.change = true; }
+                else if (key === "controls_sprint") { player.settings.speed = 1 }
             } else {
-                if (key === "controls_sprint") { player.settings.speed = 4 }
+                if (key === "controls_sprint") { player.settings.speed = 0.5 }
             }
         });
 
-        // simplified Gravity
-        if (Math.abs(player.elements.yaw.position.x) > 125 ||
-            Math.abs(player.elements.yaw.position.z) > 125) {//fall outside floor
+        //gravity
+        const raycaster = new THREE.Raycaster();
+        raycaster.far = 5;//needs to be slightly higher than half of the height of player
+        raycaster.set(player.elements.yaw.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(this.maps[mapId].staticObjects)
+        if (intersects.length == 0) {
             player.elements.yaw.position.y -= map.settings.gravity;
             map.change = true;
-        }
-        else if (player.elements.yaw.position.y < 1) {//floor
-            player.elements.yaw.position.y = 1;
-            map.change = true;
-        }
-        else if (player.elements.yaw.position.y > 1) {//fall to floor
-            player.elements.yaw.position.y -= map.settings.gravity;
-            map.change = true;
+        } else if(jump === false){
+            player.elements.yaw.position.y = intersects[0].point.y + 0.5;
         }
     }
 
@@ -96,14 +124,17 @@ class Simulator {
         yaw.add(pitch);
         elements.pitch = pitch;
 
-        yaw.position.set((Math.random() * 199) - 99, 1, (Math.random() * 199) - 99);
+        yaw.position.set(
+            Math.round(Math.random() * 199) - 99,
+            20,
+            Math.round(Math.random() * 199) - 99);
         yaw.rotation.y = Math.random() * 360;
 
         pitch.rotation.x = 0;
 
         //create player object
         this.maps[mapId].players[playerId] = {
-            settings: { speed: 4 },
+            settings: { speed: 0.5 },
             controls: {
                 controls_forward: { pressed: false },
                 controls_right: { pressed: false },
@@ -146,7 +177,7 @@ class Simulator {
         };
     }
 
-    getMapState(mapId) { return { players: this.getPlayers(mapId) }; }//to expand later
+    getMapState(mapId) { return { id: mapId, players: this.getPlayers(mapId) }; }//to expand later
 
     getPlayersIdsOfMap(mapId) { return Object.keys(this.maps[mapId].players); }
 

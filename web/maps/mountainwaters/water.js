@@ -9,7 +9,7 @@
 
 THREE.Water = function (geometry, options) {
 
-	THREE.Mesh.call(this, geometry);
+	new THREE.Mesh(this, geometry);
 
 	var scope = this;
 
