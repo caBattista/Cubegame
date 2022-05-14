@@ -47,7 +47,7 @@ const { FontLoader } = require('./server/three.js');
 
   //load maps into Sim
   db.getMaps().then(dbRes => {
-    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMap(map.id); }); }
+    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMap(map); }); }
   });
 
   //#################################### Request handling #######################################
@@ -214,7 +214,7 @@ const { FontLoader } = require('./server/three.js');
       });
     }
     //Send map state to client
-    send("success", { mapState: mapState, static_objects: sim.maps[data.mapId].static_objects });
+    send("success", mapState);
   });
 
   wss.on("map", "leave", (data, client, send) => {
@@ -224,9 +224,10 @@ const { FontLoader } = require('./server/three.js');
     Object.keys(mapState.players).forEach(playerId => {
       wss.send(wss.clients[playerId], "map", "removePlayers", "success", { [client.id]: {} })
     })
-    console.log(mapState)
     //stop map if last one
-    if (Object.keys(mapState.players).length < 1) { sim.stopMap(mapState.id); }
+    if (Object.keys(mapState.players).length < 1) {
+      db.updateMap(sim.stopMap(mapState.id));
+    }
     //send success to client
     send("success");
   });

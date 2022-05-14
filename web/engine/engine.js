@@ -45,7 +45,8 @@ class Engine {
                 }
             }, 100);
         };
-        this.initScene(static_objects);
+
+        this.scene = new THREE.Scene();
     }
 
     initLoadingManager() {
@@ -56,11 +57,6 @@ class Engine {
             this.game.ingameui.updateProgressBar(itemsLoaded, itemsTotal, `
                 Loading: ${url.replace(/^.*[\\\/]/, '').split("?")[0]} ${itemsLoaded} of ${itemsTotal}`);
         };
-    }
-
-    initScene(static_objects) {
-        this.scene = new THREE.Scene();
-        this.map = new Map().init(this.settings, this.manager, this.scene, static_objects, this);
     }
 
     initRenderer() {
@@ -88,13 +84,19 @@ class Engine {
             this.renderer.render(this.scene, this.players[this.clientId].elements.camera);
             requestAnimationFrame(() => {
                 this.stats.start();
-                this.map.animate();
+                //this.map.animate();
                 this.stats.end();
             });
         }, this.settings.interval);
     }
 
     createMapState(mapState) {
+        this.loader = new THREE.ObjectLoader();
+        mapState.static_objects.forEach(object => {
+            if (object.images) { object.images.forEach(image => { image.url = this.addCid(image.url); }); }
+            this.scene.add(this.loader.parse(object));
+        })
+        //this.map = new Map2().init(this.settings, this.manager, this.scene);
         this.addPlayers(mapState.players, true);
     }
 

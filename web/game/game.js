@@ -9,6 +9,9 @@ class Game {
     }
 
     async start() {
+        this.headers = new Headers();
+        this.headers.set('cliendId', this.loader.client_id);
+
         //Load UI
         await this.loader.load("ui/ui", 1);
         this.ui = new Ui(this);
@@ -18,7 +21,7 @@ class Game {
         //await new Login(this).login();
         await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
-    
+
         //Mainmenu
         await this.loader.load("ui/mainmenu/mainmenu", 1);
 
@@ -62,12 +65,10 @@ class Game {
         await this.loader.load("maps/mountainwaters/water");//needs to be according to mapid
         await this.loader.load("maps/mountainwaters/map");
         const res = await this.ws.request("map", "join", { mapId: mapId });
-        const mapState = res.mapState;
-        window.static_objects = res.static_objects;
         const settings = await this.ws.request("settings", "get");
         const characters = await this.ws.request("characters", "get");
-        this.engine = new Engine(this, settings, characters, this.loader.client_id, static_objects);
-        this.engine.createMapState(mapState, this.loader.client_id);
+        this.engine = new Engine(this, settings, characters, this.loader.client_id);
+        this.engine.createMapState(res, this.loader.client_id);
         this.ws.on("map", "addPlayers", (status, data, send) => {
             this.engine.addPlayers(data);
         })
@@ -90,5 +91,17 @@ class Game {
         await this.ws.request("map", "leave", { mapId: this.currentMap });
         await this.mainmenu.start();
         console.log("leave");
+    }
+
+    removeImgurls(sceneChildren) {
+        var res = [];
+        sceneChildren.forEach(object => {
+            var objJson = object.toJSON();
+            if (objJson.images) {
+                objJson.images.forEach(image => { image.url = "" });
+            }
+            res.push(objJson);
+        })
+        return JSON.stringify(res);
     }
 } 

@@ -1,4 +1,3 @@
-const { map } = require("joi/lib/types/symbol");
 const THREE = require("./three.js");
 class Simulator {
 
@@ -11,16 +10,16 @@ class Simulator {
             players: {}, change: false,
             settings: map.settings,
             staticObjects: [],
-            static_objects : map.static_objects
+            static_objects: map.static_objects
         };
         map.static_objects.forEach(object => {
             this.maps[map.id].staticObjects.push(this.createMeshFromObject(object));
         })
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", map.id, this.maps[map.id].staticObjects);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", map.id);
     }
 
     createMeshFromObject(static_object) {
-        const object = Object.assign({}, static_object)
+        const object = JSON.parse(JSON.stringify(static_object))//Object assign doesnt work for some reason
         delete object.material;
         delete object.images;
         delete object.textures;
@@ -48,6 +47,7 @@ class Simulator {
     stopMap(mapId) {
         clearInterval(this.maps[mapId].loop);
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STOPPED MAP", mapId, mapId);
+        return { id: mapId, static_objects: this.maps[mapId].static_objects };
     }
 
     movePlayer(mapId, playerId) {
@@ -76,9 +76,9 @@ class Simulator {
                 else if (key === "controls_backward") { moveDegRad(Math.PI); }
                 else if (key === "controls_left") { moveDegRad(Math.PI / 2); }
                 else if (key === "controls_jump") { jump = true; player.elements.yaw.position.y += player.settings.speed; map.change = true; }
-                else if (key === "controls_sprint") { player.settings.speed = 1 }
+                else if (key === "controls_sprint") { player.settings.speed = 0.8 }
             } else {
-                if (key === "controls_sprint") { player.settings.speed = 0.5 }
+                if (key === "controls_sprint") { player.settings.speed = 0.4 }
             }
         });
 
@@ -90,8 +90,8 @@ class Simulator {
         if (intersects.length == 0) {
             player.elements.yaw.position.y -= map.settings.gravity;
             map.change = true;
-        } else if(jump === false){
-            player.elements.yaw.position.y = intersects[0].point.y + 0.5;
+        } else if (jump === false) {
+            player.elements.yaw.position.y = intersects[0].point.y + 0.4;
         }
     }
 
@@ -134,7 +134,7 @@ class Simulator {
 
         //create player object
         this.maps[mapId].players[playerId] = {
-            settings: { speed: 0.5 },
+            settings: { speed: 0.4 },
             controls: {
                 controls_forward: { pressed: false },
                 controls_right: { pressed: false },
@@ -177,7 +177,12 @@ class Simulator {
         };
     }
 
-    getMapState(mapId) { return { id: mapId, players: this.getPlayers(mapId) }; }//to expand later
+    getMapState(mapId) {
+        return {
+            id: mapId, players: this.getPlayers(mapId),
+            static_objects: this.maps[mapId].static_objects
+        };
+    }//to expand later
 
     getPlayersIdsOfMap(mapId) { return Object.keys(this.maps[mapId].players); }
 
