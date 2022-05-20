@@ -9,8 +9,7 @@ class Simulator {
         this.maps[map.id] = {
             players: {}, change: false,
             settings: map.settings,
-            staticObjects: [],
-            static_objects: map.static_objects
+            staticObjects: map.static_objects,
         };
         map.static_objects.forEach(object => {
             this.maps[map.id].staticObjects.push(this.createMeshFromObject(object));
