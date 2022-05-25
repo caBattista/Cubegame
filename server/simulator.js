@@ -9,24 +9,22 @@ class Simulator {
         this.maps[map.id] = {
             players: {}, change: false,
             settings: map.settings,
-            staticObjects: map.static_objects,
+            objects: [], 
+            visuals : {}
         };
         map.static_objects.forEach(object => {
-            this.maps[map.id].staticObjects.push(this.createMeshFromObject(object));
+            const res = this.createMeshFromObject(object);
+            this.maps[map.id].objects.push(res.mesh);
+            this.maps[map.id].visuals[object.object.uuid] = res.visuals;
         })
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", map.id);
     }
 
-    createMeshFromObject(static_object) {
-        const object = JSON.parse(JSON.stringify(static_object))//Object assign doesnt work for some reason
-        delete object.material;
-        delete object.images;
-        delete object.textures;
-        delete object.object.material;
-        const loader = new THREE.ObjectLoader();
-        const mesh = loader.parse(object);
+    createMeshFromObject(object) {
+        const res = this.separateObject(object);//sepereate visuals from json object
+        const mesh = new THREE.ObjectLoader().parse(res.object);//create the object
         mesh.updateMatrixWorld(true);//important for raycaster (force calculates Matrix without render)
-        return mesh;
+        return { mesh: mesh, visuals: res.visuals };
     }
 
     startMap(mapId, callback) {
@@ -46,7 +44,7 @@ class Simulator {
     stopMap(mapId) {
         clearInterval(this.maps[mapId].loop);
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STOPPED MAP", mapId, mapId);
-        return { id: mapId, static_objects: this.maps[mapId].static_objects };
+        return { id: mapId, static_objects: this.maps[mapId].objects };
     }
 
     movePlayer(mapId, playerId) {
@@ -81,11 +79,11 @@ class Simulator {
             }
         });
 
-        //gravity
+        // //gravity
         const raycaster = new THREE.Raycaster();
         raycaster.far = 5;//needs to be slightly higher than half of the height of player
         raycaster.set(player.elements.yaw.position, new THREE.Vector3(0, -1, 0));
-        const intersects = raycaster.intersectObjects(this.maps[mapId].staticObjects)
+        const intersects = raycaster.intersectObjects(this.maps[mapId].objects)
         if (intersects.length == 0) {
             player.elements.yaw.position.y -= map.settings.gravity;
             map.change = true;
@@ -179,9 +177,44 @@ class Simulator {
     getMapState(mapId) {
         return {
             id: mapId, players: this.getPlayers(mapId),
-            static_objects: this.maps[mapId].static_objects
+            static_objects: this.joinObjects(this.maps[mapId])
         };
-    }//to expand later
+    }
+
+    //convert json object to object with textures or
+    separateObject(object) {
+
+        let visuals = {
+            materials: structuredClone(object.materials),
+            images: structuredClone(object.images),
+            textures: structuredClone(object.textures),
+            object_material: structuredClone(object.object.material)
+        }
+
+        delete object.materials;
+        delete object.images;
+        delete object.textures;
+        delete object.object.material;
+
+        return { object: object, visuals: visuals };
+    }
+
+    joinObjects(map){
+        const mapObjects = [];
+        map.objects.forEach(object => {
+            mapObjects.push(this.joinObject(object, map.visuals[object.uuid]));
+        })
+        return mapObjects;
+    }
+
+    joinObject(object1, visuals) {
+        const object = object1.toJSON();
+        object.materials = structuredClone(visuals.materials);
+        object.images = structuredClone(visuals.images);
+        object.textures = structuredClone(visuals.textures);
+        object.object.material = structuredClone(visuals.object_material);
+        return object;
+    }
 
     getPlayersIdsOfMap(mapId) { return Object.keys(this.maps[mapId].players); }
 
