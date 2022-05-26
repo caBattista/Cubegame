@@ -30,7 +30,7 @@ input {
     font-family: Orbitron, sans-serif;
     transition: 0.2s;
     background-color: rgb(65, 74, 107);
-    color: #fff;
+    color: rgb(38 184 153);
     font-size: 1em !important;
 }
 
@@ -79,11 +79,12 @@ select {
     width: 210px;
     padding: 3px 8px;
     background-color: rgb(65, 74, 107);
+    color: rgb(38 184 153);
     border-radius: 2px;
     border: none;
-    color: #fff;
     font-family: inherit;
     transition: 0.2s;
+    font-size: 1em !important;
 }
 
 textarea:focus, input:hover, select:hover {
@@ -172,7 +173,7 @@ textarea:focus, input:hover, select:hover {
     right: -10px;
     padding: 2px 6px;
     border-radius: 2px;
-    background-color: #eee;
+    background-color: rgb(65, 74, 107);
     cursor: pointer;
     transition: 0.4s;
 }

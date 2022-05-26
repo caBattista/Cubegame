@@ -17,8 +17,19 @@ class Maps extends Mainmenu {
             <div class="list"></div>`, this.parent, "all");
 
         elements[0].children[1].addEventListener("click", async ev => {
-            await this.game.createMap();
-            this.createPage(this.parent);
+            const els = this.createToolTip(`
+                <h1>Name</h1>
+                <select name="map_name">
+                    <option value="mountainwaters" selected>Mountainwaters</option>
+                    <option value="space">Space</option>
+                  </select>
+                <input type="submit" value="Add">
+            `, document.body);
+            els.content[2].addEventListener("click", async ev => {
+                await this.game.createMap(els.content[1].options[els.content[1].selectedIndex].value);
+                this.createPage(this.parent);
+                els.tt.remove();
+            });
         });
         const res = await this.game.getMaps();
         res.forEach(map => {

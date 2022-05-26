@@ -93,10 +93,14 @@ class Engine {
     createMapState(mapState) {
         this.loader = new THREE.ObjectLoader();
         mapState.static_objects.forEach(object => {
-            if (object.images) { object.images.forEach(image => { image.url = this.addCid(image.url); }); }
+            if (object.images) {
+                object.images.forEach(image => {
+                    image.url = this.addCid(`maps/${mapState.type}/textures/${image.url}`);
+                });
+            }
             this.scene.add(this.loader.parse(object));
         })
-        //this.map = new Map2().init(this.settings, this.manager, this.scene);
+        this.map = new Map2().init(this.settings, this.manager, this.scene);
         this.addPlayers(mapState.players, true);
     }
 

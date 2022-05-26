@@ -3,7 +3,7 @@
     "max_players": 10,
     "players": 0,
     "settings": {
-        "gravity": 0.3
+        "gravity": 0.1
     },
     "static_objects": [
         {
@@ -88,6 +88,9 @@
                         "near": 0.1,
                         "far": 1000
                     }
+                },
+                "userData": {
+                    "mass": 1.1
                 }
             }
         },
@@ -434,27 +437,27 @@
             "images": [
                 {
                     "uuid": "7d9ba899-d8bd-480a-9e7a-1bdc0e653c51",
-                    "url": "maps/mountainwaters/textures/skybox/left.jpg"
+                    "url": "skybox/left.jpg"
                 },
                 {
                     "uuid": "cb0055a9-17c9-44b9-9497-c6fa3295ffda",
-                    "url": "maps/mountainwaters/textures/skybox/right.jpg"
+                    "url": "skybox/right.jpg"
                 },
                 {
                     "uuid": "c3f6ad16-4ede-4c0f-bb61-42c7aec46f9f",
-                    "url": "maps/mountainwaters/textures/skybox/back.jpg"
+                    "url": "skybox/back.jpg"
                 },
                 {
                     "uuid": "d475d8e4-2d4a-4fb1-8933-a2b0eb95ebf7",
-                    "url": "maps/mountainwaters/textures/skybox/front.jpg"
+                    "url": "skybox/front.jpg"
                 },
                 {
                     "uuid": "d4b95539-ab2c-476c-85fe-8656ac9cf86c",
-                    "url": "maps/mountainwaters/textures/skybox/bottom.jpg"
+                    "url": "skybox/bottom.jpg"
                 },
                 {
                     "uuid": "f049cf2c-1747-4d7a-a740-e6258c085519",
-                    "url": "maps/mountainwaters/textures/skybox/top.jpg"
+                    "url": "skybox/top.jpg"
                 }
             ],
             "object": {
@@ -636,15 +639,15 @@
             "images": [
                 {
                     "uuid": "63942eef-6044-45a6-87b7-a8eddbb5e2a6",
-                    "url": "maps/mountainwaters/textures/concrete/concrete_b.png"
+                    "url": "concrete/concrete_b.png"
                 },
                 {
                     "uuid": "347f9b75-a48b-4040-94db-b49f99620193",
-                    "url": "maps/mountainwaters/textures/concrete/concrete_d.png"
+                    "url": "concrete/concrete_d.png"
                 },
                 {
                     "uuid": "8b7452f5-dbdf-4f61-a675-11475f5bba89",
-                    "url": "maps/mountainwaters/textures/concrete/concrete_s.png"
+                    "url": "concrete/concrete_s.png"
                 }
             ],
             "object": {
@@ -743,7 +746,10 @@
                     1
                 ],
                 "geometry": "0e8ff796-3abc-4ea7-8820-d735ded619fd",
-                "material": "c483a62a-e90f-4123-8ab8-746c43aadc6e"
+                "material": "c483a62a-e90f-4123-8ab8-746c43aadc6e",
+                "userData": {
+                    "mass": 1
+                }
             }
         }
     ]

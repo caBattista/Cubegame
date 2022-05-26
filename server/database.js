@@ -10,8 +10,8 @@ class Database {
             this.pgClient.connect().then(() => {
                 this.pgClient.query(`SELECT version();`).then(async pgRes => {
                     console.log("\x1b[32m%s\x1b[0m", "DATABASE:", pgRes.rows[0].version);
-                    await this.pgClient.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-                    await this.pgClient.query(`DELETE FROM maps`);
+                    //await this.pgClient.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+                    //await this.pgClient.query(`DELETE FROM maps`);
 
                     // DEBUG
                     // await this.pgClient.query(`DELETE FROM characters`);

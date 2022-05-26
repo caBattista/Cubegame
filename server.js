@@ -137,7 +137,7 @@ const { FontLoader } = require('./server/three.js');
   // ######################################## Main Menu ########################################
 
   wss.on("maps", "create", (data, client, send) => {
-    db.addMap(JSON.parse(require('fs').readFileSync('web/maps/mountainwaters/map.json'))).then(dbRes => {
+    db.addMap(JSON.parse(require('fs').readFileSync(`web/maps/${data.type}/map.json`))).then(dbRes => {
       if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
       sim.addMap(dbRes[0]);
       send("success");

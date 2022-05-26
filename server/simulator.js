@@ -7,10 +7,11 @@ class Simulator {
 
     addMap(map) {
         this.maps[map.id] = {
+            type: map.type,
             players: {}, change: false,
             settings: map.settings,
-            objects: [], 
-            visuals : {}
+            objects: [],
+            visuals: {}
         };
         map.static_objects.forEach(object => {
             const res = this.createMeshFromObject(object);
@@ -50,12 +51,14 @@ class Simulator {
     movePlayer(mapId, playerId) {
         const map = this.maps[mapId];
         const player = map.players[playerId];
+        const currentSpeed =
+            player.controls.controls_sprint.pressed === true ? player.settings.sprintSpeed : player.settings.speed;
 
         function moveDegRad(degRad) {
             player.elements.yaw.position.add(
                 player.elements.yaw.getWorldDirection(new THREE.Vector3())
                     .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-                    .multiply(new THREE.Vector3(player.settings.speed, 0, player.settings.speed))
+                    .multiply(new THREE.Vector3(currentSpeed, 0, currentSpeed))
             );
 
             player.elements.yaw.position.x = Math.round(player.elements.yaw.position.x * 1000) / 1000;
@@ -65,31 +68,60 @@ class Simulator {
             map.change = true;
         }
 
-        let jump = false;
-        Object.entries(player.controls).forEach(([key, val]) => {
-            if (val.pressed === true) {
-                if (key === "controls_forward") { moveDegRad(0); }
-                else if (key === "controls_right") { moveDegRad(-Math.PI / 2); }
-                else if (key === "controls_backward") { moveDegRad(Math.PI); }
-                else if (key === "controls_left") { moveDegRad(Math.PI / 2); }
-                else if (key === "controls_jump") { jump = true; player.elements.yaw.position.y += player.settings.speed; map.change = true; }
-                else if (key === "controls_sprint") { player.settings.speed = 0.8 }
-            } else {
-                if (key === "controls_sprint") { player.settings.speed = 0.4 }
-            }
-        });
+        if (player.controls.controls_forward.pressed === true) { moveDegRad(0); }
+        if (player.controls.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); }
+        if (player.controls.controls_backward.pressed === true) { moveDegRad(Math.PI); }
+        if (player.controls.controls_left.pressed === true) { moveDegRad(Math.PI / 2); }
 
-        // //gravity
+        if (player.controls.controls_jump.pressed === true) { player.elements.yaw.position.y += currentSpeed; }
+
+        //gravity vertical
+        // const raycaster = new THREE.Raycaster();
+        // raycaster.far = 1;//needs to be slightly higher than half of the height of player
+        // raycaster.set(player.elements.yaw.position, new THREE.Vector3(0, -1, 0));
+        // const intersects = raycaster.intersectObjects(this.maps[mapId].objects);
+        // if (intersects.length == 0) {
+        //     player.settings.currentSpeed -= player.settings.gravity;
+        //     player.elements.yaw.position.y += player.settings.currentSpeed;
+        // } else {
+        //     player.settings.currentSpeed = 0;
+        //     player.elements.yaw.position.y = intersects[0].point.y + 0.5;
+        // }
+        // if (player.settings.currentSpeed !== 0) {
+        //     map.change = true;
+        // }
+
+        //spacial graqvity
         const raycaster = new THREE.Raycaster();
-        raycaster.far = 5;//needs to be slightly higher than half of the height of player
-        raycaster.set(player.elements.yaw.position, new THREE.Vector3(0, -1, 0));
-        const intersects = raycaster.intersectObjects(this.maps[mapId].objects)
-        if (intersects.length == 0) {
-            player.elements.yaw.position.y -= map.settings.gravity;
-            map.change = true;
-        } else if (jump === false) {
-            player.elements.yaw.position.y = intersects[0].point.y + 0.4;
-        }
+        raycaster.far = 1;
+        this.maps[mapId].objects.forEach(object => {
+            if (object.userData.mass) {
+                const pObject = new THREE.Vector3(
+                    object.position.x,
+                    object.position.y,
+                    object.position.z);
+                const pPlayer = new THREE.Vector3(
+                    player.elements.yaw.position.x,
+                    player.elements.yaw.position.y,
+                    player.elements.yaw.position.z);
+                const dir = new THREE.Vector3();
+                dir.subVectors(pObject, pPlayer).normalize()
+
+                raycaster.set(player.elements.yaw.position, dir);
+                const intersects = raycaster.intersectObjects(this.maps[mapId].objects);
+                if (intersects.length == 0) {
+                    player.settings.currentSpeed = (object.userData.mass + player.settings.mass) / 4;
+                    //console.log(player.settings.currentSpeed);
+                    //player.elements.yaw.rotation.set(dir.x, dir.y, dir.z)
+                    player.elements.yaw.position.add(dir.multiply(
+                        new THREE.Vector3(
+                            player.settings.currentSpeed,
+                            player.settings.currentSpeed,
+                            player.settings.currentSpeed)));
+                } else { player.settings.currentSpeed = 0; }
+                if (player.settings.currentSpeed !== 0) { map.change = true; }
+            }
+        })
     }
 
     controlPlayer(playerId, change) {
@@ -123,7 +155,7 @@ class Simulator {
 
         yaw.position.set(
             Math.round(Math.random() * 199) - 99,
-            20,
+            100,
             Math.round(Math.random() * 199) - 99);
         yaw.rotation.y = Math.random() * 360;
 
@@ -131,7 +163,7 @@ class Simulator {
 
         //create player object
         this.maps[mapId].players[playerId] = {
-            settings: { speed: 0.4 },
+            settings: { speed: 0.4, sprintSpeed: 0.8, currentSpeed: 0, gravity: this.maps[mapId].settings.gravity, mass: 1 },
             controls: {
                 controls_forward: { pressed: false },
                 controls_right: { pressed: false },
@@ -176,7 +208,7 @@ class Simulator {
 
     getMapState(mapId) {
         return {
-            id: mapId, players: this.getPlayers(mapId),
+            id: mapId, type: this.maps[mapId].type, players: this.getPlayers(mapId),
             static_objects: this.joinObjects(this.maps[mapId])
         };
     }
@@ -199,7 +231,7 @@ class Simulator {
         return { object: object, visuals: visuals };
     }
 
-    joinObjects(map){
+    joinObjects(map) {
         const mapObjects = [];
         map.objects.forEach(object => {
             mapObjects.push(this.joinObject(object, map.visuals[object.uuid]));

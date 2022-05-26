@@ -16,11 +16,11 @@ class Map2 {
         // "maps/mountainwaters/textures/skybox/front.jpg": { type: "texture" },
         // "maps/mountainwaters/textures/skybox/bottom.jpg": { type: "texture" },
         // "maps/mountainwaters/textures/skybox/top.jpg": { type: "texture" },
-        "maps/mountainwaters/textures/water/waternormals.jpg": {
-            type: "texture", fn: texture => {
-                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            }
-        },
+        // "maps/mountainwaters/textures/water/waternormals.jpg": {
+        //     type: "texture", fn: texture => {
+        //         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        //     }
+        // },
         // "maps/mountainwaters/textures/concrete/concrete_b.png": {
         //     type: "texture", fn: texture => {
         //         texture.repeat.set(512, 512);
@@ -68,6 +68,13 @@ class Map2 {
     }
 
     createElements(settings, scene) {
+
+        // const geometry = new THREE.SphereGeometry(100, 100, 100);
+        // const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, color: 0xaaaaaa });
+        // const sphere = new THREE.Mesh(geometry, material);
+        // sphere.receiveShadow = true;
+        // sphere.name = "sphere";
+        // scene.add(sphere);
 
         // //##################### lights #####################
         // const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -135,35 +142,16 @@ class Map2 {
 
         //##################### water #####################
         //not running in this version
-        const waterGeometry = new THREE.PlaneBufferGeometry(8000, 8000);
-        if (settings.graphics_quality === "High") {
-            const water = new THREE.Water(
-                waterGeometry,
-                {
-                    textureWidth: 1024,
-                    textureHeight: 1024,
-                    waterNormals: this.textures['maps/mountainwaters/textures/water/waternormals.jpg'],
-                    alpha: 0.9,
-                    sunDirection: new THREE.Vector3(0,0,0),
-                    sunColor: 0xffffff,
-                    waterColor: 0x00190f,
-                    distortionScale: 5,
-                    fog: scene.fog !== undefined,
-                    wireframe: settings.useWireframe
-                }
-            );
-            water.material.uniforms.size.value = 1;
-            //water.position.set(0, -1, 0);
-            //water.rotation.x = - Math.PI / 2;
-            this.elements.water = water;
-            scene.add(water);
-        } 
-        // else {
+        // const waterGeometry = new THREE.PlaneBufferGeometry(8000, 8000);
+        // if (settings.graphics_quality === "High") {
         //     const water = new THREE.Water(
         //         waterGeometry,
         //         {
+        //             textureWidth: 1024,
+        //             textureHeight: 1024,
+        //             waterNormals: this.textures['maps/mountainwaters/textures/water/waternormals.jpg'],
         //             alpha: 0.9,
-        //             sunDirection: sun.position.clone().normalize(),
+        //             sunDirection: new THREE.Vector3(0,0,0),
         //             sunColor: 0xffffff,
         //             waterColor: 0x00190f,
         //             distortionScale: 5,
@@ -171,24 +159,42 @@ class Map2 {
         //             wireframe: settings.useWireframe
         //         }
         //     );
-        //     water.position.set(0, -1, 0);
-        //     water.rotation.x = - Math.PI / 2;
+        //     water.material.uniforms.size.value = 1;
+        //     //water.position.set(0, -1, 0);
+        //     //water.rotation.x = - Math.PI / 2;
         //     this.elements.water = water;
         //     scene.add(water);
-        // }
-
-        //##################### mesh #####################
-        // const mesh = new THREE.Mesh(
-        //     new THREE.BoxGeometry(1, 1, 1),
-        //     new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: settings.useWireframe })
-        // );
-        // mesh.position.set(0, 1, 0);
-        // mesh.receiveShadow = true;
-        // mesh.castShadow = true;
-        // this.elements.mesh = mesh;
-        // mesh.name = "centerCube";
-        // scene.add(mesh);
     }
+    // else {
+    //     const water = new THREE.Water(
+    //         waterGeometry,
+    //         {
+    //             alpha: 0.9,
+    //             sunDirection: sun.position.clone().normalize(),
+    //             sunColor: 0xffffff,
+    //             waterColor: 0x00190f,
+    //             distortionScale: 5,
+    //             fog: scene.fog !== undefined,
+    //             wireframe: settings.useWireframe
+    //         }
+    //     );
+    //     water.position.set(0, -1, 0);
+    //     water.rotation.x = - Math.PI / 2;
+    //     this.elements.water = water;
+    //     scene.add(water);
+    // }
+
+    //##################### mesh #####################
+    // const mesh = new THREE.Mesh(
+    //     new THREE.BoxGeometry(1, 1, 1),
+    //     new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: settings.useWireframe })
+    // );
+    // mesh.position.set(0, 1, 0);
+    // mesh.receiveShadow = true;
+    // mesh.castShadow = true;
+    // this.elements.mesh = mesh;
+    // mesh.name = "centerCube";
+    // scene.add(mesh);
 
     animate() {
         //water
@@ -198,4 +204,5 @@ class Map2 {
         // this.elements.centerCube.rotation.x += 0.001;
         // this.elements.centerCube.rotation.y += 0.002;
     }
+
 }
