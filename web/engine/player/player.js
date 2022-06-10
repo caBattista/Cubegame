@@ -58,6 +58,7 @@ class Player {
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial(playerSettings[this.settings.graphics_quality])
         );
+        yaw.name = "player";
         yaw.position.set(0, this.settings.height, 0);
         this.elements.yaw = yaw;
 

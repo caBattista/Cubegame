@@ -1,3 +1,4 @@
+const object = require("joi/lib/types/object");
 const THREE = require("./three.js");
 class Simulator {
 
@@ -8,10 +9,11 @@ class Simulator {
     addMap(map) {
         this.maps[map.id] = {
             type: map.type,
-            players: {}, change: false,
             settings: map.settings,
+            players: [],
             objects: [],
-            visuals: {}
+            visuals: {},
+            change: {}
         };
         map.static_objects.forEach(object => {
             const res = this.createMeshFromObject(object);
@@ -29,15 +31,10 @@ class Simulator {
     }
 
     startMap(mapId, callback) {
-        //calculation loop
-        this.maps[mapId].loop = setInterval(() => {
-            Object.keys(this.maps[mapId].players).forEach((key) => {
-                this.movePlayer(mapId, key);
-            });
-            if (this.maps[mapId].change === true) {
-                this.maps[mapId].change = false;
-                callback(this.getMapState(mapId));
-            }
+        const map = this.maps[mapId];
+        map.loop = setInterval(() => {
+            map.objects.forEach(object => this.moveObject(map, object));
+            if (Object.keys(map.change).length !== 0) { callback(map.change); map.change = {}; }
         }, 1000 / 30);
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STARTED MAP", mapId);
     }
@@ -45,172 +42,277 @@ class Simulator {
     stopMap(mapId) {
         clearInterval(this.maps[mapId].loop);
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STOPPED MAP", mapId, mapId);
-        return { id: mapId, static_objects: this.maps[mapId].objects };
+        return { id: mapId, objects: this.maps[mapId].objects };
     }
 
-    movePlayer(mapId, playerId) {
-        const map = this.maps[mapId];
-        const player = map.players[playerId];
-        const currentSpeed =
-            player.controls.controls_sprint.pressed === true ? player.settings.sprintSpeed : player.settings.speed;
+    submitChange(map, uuid, change) {
+        if (map.change[uuid] !== undefined) {
+            Object.entries(change).forEach(([key, values]) => {
+                map.change[uuid][key] = values;
+            });
+        } else { map.change[uuid] = change; }
+    }
 
-        function moveDegRad(degRad) {
-            player.elements.yaw.position.add(
-                player.elements.yaw.getWorldDirection(new THREE.Vector3())
+    moveObject(map, object) {
+        if (object.userData === undefined ||
+            object.userData.physics === undefined ||
+            object.userData.physics.mass === undefined) { return; }
+
+        const physics = object.userData.physics;
+        if (physics.currentForce === undefined) { physics.currentForce = new THREE.Vector3(); }
+        if (physics.currentAcceleration === undefined) { physics.currentAcceleration = new THREE.Vector3(); }
+        if (physics.currentSpeed === undefined) { physics.currentSpeed = new THREE.Vector3(); }
+
+        if (object.userData.playerId) {
+            const settings = object.userData.controls.settings;
+            const actions = object.userData.controls.actions;
+            const moveForce =
+                actions.controls_sprint.pressed === true ? settings.sprintSpeed : settings.speed;
+
+            function moveDegRad(degRad) {
+                physics.currentForce.add(object.getWorldDirection(new THREE.Vector3())
                     .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-                    .multiply(new THREE.Vector3(currentSpeed, 0, currentSpeed))
-            );
+                    .multiply(new THREE.Vector3(moveForce, 1, moveForce)))
+            }
 
-            player.elements.yaw.position.x = Math.round(player.elements.yaw.position.x * 1000) / 1000;
-            player.elements.yaw.position.y = Math.round(player.elements.yaw.position.y * 1000) / 1000;
-            player.elements.yaw.position.z = Math.round(player.elements.yaw.position.z * 1000) / 1000;
+            if (actions.controls_forward.pressed === true) { moveDegRad(0); }
+            if (actions.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); }
+            if (actions.controls_backward.pressed === true) { moveDegRad(Math.PI); }
+            if (actions.controls_left.pressed === true) { moveDegRad(Math.PI / 2); }
+            if (actions.controls_jump.pressed === true) { physics.currentForce.add(new THREE.Vector3(0, moveForce, 0)) }
 
-            map.change = true;
+            // //gravity vertical
+            // const raycaster = new THREE.Raycaster();
+            // raycaster.far = 1;//needs to be slightly higher than half of the height of player
+            // raycaster.set(object.position, new THREE.Vector3(0, -1, 0));
+            // const intersects = raycaster.intersectObjects(map.objects);
+            // if (intersects.length == 0) {
+            //     physics.currentSpeed -= 0.02;
+            //     object.position.y += physics.currentSpeed;
+            // } else {
+            //     physics.currentSpeed = 0;
+            //     object.position.y = intersects[0].point.y + 1;
+            // }
+            // if (physics.currentSpeed !== 0) {
+            //     moved = true;
+            // }
         }
 
-        if (player.controls.controls_forward.pressed === true) { moveDegRad(0); }
-        if (player.controls.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); }
-        if (player.controls.controls_backward.pressed === true) { moveDegRad(Math.PI); }
-        if (player.controls.controls_left.pressed === true) { moveDegRad(Math.PI / 2); }
-
-        if (player.controls.controls_jump.pressed === true) { player.elements.yaw.position.y += currentSpeed; }
-
-        //gravity vertical
-        // const raycaster = new THREE.Raycaster();
-        // raycaster.far = 1;//needs to be slightly higher than half of the height of player
-        // raycaster.set(player.elements.yaw.position, new THREE.Vector3(0, -1, 0));
-        // const intersects = raycaster.intersectObjects(this.maps[mapId].objects);
-        // if (intersects.length == 0) {
-        //     player.settings.currentSpeed -= player.settings.gravity;
-        //     player.elements.yaw.position.y += player.settings.currentSpeed;
-        // } else {
-        //     player.settings.currentSpeed = 0;
-        //     player.elements.yaw.position.y = intersects[0].point.y + 0.5;
-        // }
-        // if (player.settings.currentSpeed !== 0) {
-        //     map.change = true;
-        // }
-
-        //spacial graqvity
-        const raycaster = new THREE.Raycaster();
-        raycaster.far = 1;
-        this.maps[mapId].objects.forEach(object => {
-            if (object.userData.mass) {
-                const pObject = new THREE.Vector3(
-                    object.position.x,
-                    object.position.y,
-                    object.position.z);
-                const pPlayer = new THREE.Vector3(
-                    player.elements.yaw.position.x,
-                    player.elements.yaw.position.y,
-                    player.elements.yaw.position.z);
-                const dir = new THREE.Vector3();
-                dir.subVectors(pObject, pPlayer).normalize()
-
-                raycaster.set(player.elements.yaw.position, dir);
-                const intersects = raycaster.intersectObjects(this.maps[mapId].objects);
-                if (intersects.length == 0) {
-                    player.settings.currentSpeed = (object.userData.mass + player.settings.mass) / 4;
-                    //console.log(player.settings.currentSpeed);
-                    //player.elements.yaw.rotation.set(dir.x, dir.y, dir.z)
-                    player.elements.yaw.position.add(dir.multiply(
-                        new THREE.Vector3(
-                            player.settings.currentSpeed,
-                            player.settings.currentSpeed,
-                            player.settings.currentSpeed)));
-                } else { player.settings.currentSpeed = 0; }
-                if (player.settings.currentSpeed !== 0) { map.change = true; }
+        // gravity
+        map.objects.forEach(attractor => {
+            if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+                attractor.userData.physics.mass) {
+                //revesing these will attract or oppse
+                const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
+                const distance = directionVector.length();
+                const forceMagnitude =
+                    ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.01;
+                physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
             }
         })
+
+        //get colission and stop movement
+        // const raycaster = new THREE.Raycaster();
+        // raycaster.far = 1;
+        // map.objects.forEach(attractor => {
+        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+        //         attractor.userData.physics.mass) {
+        //         //direction of movement
+        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position).normalize();
+        //         raycaster.set(object.position, directionVector);
+        //         const intersects = raycaster.intersectObjects(map.objects);
+        //         if (intersects.length !== 0) {
+        //             physics.currentForce = new THREE.Vector3();
+        //             physics.currentAcceleration = new THREE.Vector3();
+        //             physics.currentSpeed = new THREE.Vector3();
+        //         }
+        //     }
+        // })
+
+        //apply force to acceleration, speed and position
+
+        function roundVector(vec) {
+            return new THREE.Vector3(
+                Math.round(vec.x * 10000) / 10000,
+                Math.round(vec.y * 10000) / 10000,
+                Math.round(vec.z * 10000) / 10000)
+        }
+
+        //a=F/m
+        physics.currentAcceleration = physics.currentForce.divideScalar(physics.mass);
+
+        //v=a*t
+        physics.currentSpeed.add(physics.currentAcceleration);
+        physics.currentSpeed.multiplyScalar(0.4);//friction
+        if (physics.currentSpeed.length() < 0.0001) { physics.currentSpeed.multiplyScalar(0); }
+
+        //s=v*t
+        object.position.add(physics.currentSpeed);
+
+        //only submit change if moving
+        if (physics.currentSpeed.length() !== 0) {
+            if (object.userData.playerId !== undefined) {
+                console.log(physics);
+                this.submitChange(map, object.userData.playerId, {
+                    position: {
+                        x: object.position.x,
+                        y: object.position.y,
+                        z: object.position.z,
+                    },
+                    rotation: {
+                        pitch: object.children[0].rotation.x,
+                        yaw: object.rotation.y
+                    }
+                });
+            } else {
+                this.submitChange(map, object.uuid, {
+                    position: {
+                        x: object.position.x,
+                        y: object.position.y,
+                        z: object.position.z,
+                    },
+                    rotation: {
+                        x: object.rotation.x,
+                        y: object.rotation.y,
+                        z: object.rotation.z
+                    }
+                });
+            }
+        }
     }
 
     controlPlayer(playerId, change) {
         const mapId = this.getMapIdOfPlayer(playerId);
-        const player = this.maps[mapId].players[playerId];
+        const object = this.getPlayerObject(playerId, mapId);
 
         if (change.rotation) {
-            player.elements.yaw.rotation.y = change.rotation.yaw;
-            player.elements.pitch.rotation.x = change.rotation.pitch;
-            this.maps[mapId].change = true;
+            object.rotation.y = change.rotation.yaw;
+            object.children[0].rotation.x = change.rotation.pitch;
+            this.submitChange(this.maps[mapId], playerId, {
+                position: {
+                    x: object.position.x,
+                    y: object.position.y,
+                    z: object.position.z,
+                },
+                rotation: {
+                    pitch: object.children[0].rotation.x,
+                    yaw: object.rotation.y
+                }
+            });
         }
 
-        if (player.controls[change.action]) {
-            player.controls[change.action].pressed = change.pressed;
-            this.maps[mapId].change = true;
+        if (object.userData.controls.actions[change.action]) {
+            object.userData.controls.actions[change.action].pressed = change.pressed;
         }
 
         return true;
     }
 
     addPlayerToMap(playerId, mapId) {
-        //create geometry
-        let elements = {};
-
+        const map = this.maps[mapId];
         const yaw = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
-        elements.yaw = yaw;
-
-        const pitch = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
-        yaw.add(pitch);
-        elements.pitch = pitch;
-
         yaw.position.set(
             Math.round(Math.random() * 199) - 99,
-            100,
+            1,
             Math.round(Math.random() * 199) - 99);
         yaw.rotation.y = Math.random() * 360;
-
-        pitch.rotation.x = 0;
-
-        //create player object
-        this.maps[mapId].players[playerId] = {
-            settings: { speed: 0.4, sprintSpeed: 0.8, currentSpeed: 0, gravity: this.maps[mapId].settings.gravity, mass: 1 },
-            controls: {
-                controls_forward: { pressed: false },
-                controls_right: { pressed: false },
-                controls_backward: { pressed: false },
-                controls_left: { pressed: false },
-                controls_jump: { pressed: false },
-                controls_sprint: { pressed: false },
+        yaw.userData = {
+            physics: {
+                currentForce: new THREE.Vector3(0, 0, 0),
+                currentAcceleration: new THREE.Vector3(0, 0, 0),
+                currentSpeed: new THREE.Vector3(0, 0, 0),
+                mass: 10
             },
-            elements: elements,
-        };
+            playerId: playerId,
+            controls: {
+                settings: {
+                    speed: 4,
+                    sprintSpeed: 10,
+                },
+                actions: {
+                    controls_forward: { pressed: false },
+                    controls_right: { pressed: false },
+                    controls_backward: { pressed: false },
+                    controls_left: { pressed: false },
+                    controls_jump: { pressed: false },
+                    controls_sprint: { pressed: false },
+                }
+            },
+        };//other stuff should go in here
+        map.objects.push(yaw);
+
+        const pitch = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+        pitch.rotation.x = 0;
+        yaw.add(pitch);
+
         return this.getMapState(mapId);
     }
 
     removePlayerFromMap(playerId) {
-        const mapOfPlayer = this.getMapIdOfPlayer(playerId);
-        if (mapOfPlayer) {
-            delete this.maps[mapOfPlayer].players[playerId];
-            console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapOfPlayer);
-        }
-        return mapOfPlayer ? this.getMapState(mapOfPlayer) : undefined;
+        let res;
+        Object.entries(this.maps).forEach(([mapId, map]) => {
+            map.objects.forEach(object => {
+                if (object.userData.playerId === playerId) {
+                    map.objects.splice(map.objects.indexOf(object), 1);
+                    res = mapId ? this.getMapState(mapId) : undefined;
+                    console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapId);
+                }
+            })
+        });
+        return res;
     }
 
     getPlayers(mapId) {
         const res = {};
-        Object.keys(this.maps[mapId].players).forEach(playerId => {
-            res[playerId] = this.getPlayer(playerId, mapId);
+        this.maps[mapId].objects.forEach(object => {
+            if (object.userData && object.userData.playerId !== undefined) {
+                res[object.userData.playerId] = {
+                    position: object.position,
+                    rotation: {
+                        yaw: object.rotation.y,
+                        pitch: object.children[0].rotation.x,
+                    }
+                };
+            }
         });
         return res;
     }
 
     getPlayer(playerId, mapId) {
-        mapId = mapId ? mapId : this.getMapIdOfPlayer(playerId);
-        let playerElements = this.maps[mapId].players[playerId].elements;
+        const playerObject = this.getPlayerObject(playerId, mapId);
         return {
-            position: playerElements.yaw.position,
+            position: playerObject.position,
             rotation: {
-                yaw: playerElements.yaw.rotation.y,
-                pitch: playerElements.pitch.rotation.x,
+                yaw: playerObject.rotation.y,
+                pitch: playerObject.children[0].rotation.x,
             }
         };
     }
 
-    getMapState(mapId) {
-        return {
-            id: mapId, type: this.maps[mapId].type, players: this.getPlayers(mapId),
-            static_objects: this.joinObjects(this.maps[mapId])
-        };
+    getPlayerObject(playerId, mapId, map) {
+        mapId = mapId !== undefined ? mapId : this.getMapIdOfPlayer(playerId);
+        map = map !== undefined ? map : this.maps[mapId];
+        let playerObject;
+        map.objects.forEach(object => {
+            if (object.userData.playerId === playerId) { playerObject = object; }
+        })
+        return playerObject;
+    }
+
+    getPlayersIdsOfMap(mapId) {
+        var playerIds = [];
+        this.maps[mapId].objects.forEach(object => {
+            if (object.playerId !== undefined) { playerIds.push(object.playerId); }
+        })
+        return playerIds;
+    }
+
+    getMapIdOfPlayer(playerId) {
+        let res = undefined;
+        Object.entries(this.maps).forEach(([mapId, map]) => {
+            map.objects.forEach(object => { if (object.userData.playerId === playerId) { res = mapId; } })
+        });
+        return res;
     }
 
     //convert json object to object with textures or
@@ -231,6 +333,13 @@ class Simulator {
         return { object: object, visuals: visuals };
     }
 
+    getMapState(mapId) {
+        return {
+            id: mapId, type: this.maps[mapId].type, players: this.getPlayers(mapId),
+            objects: this.joinObjects(this.maps[mapId])
+        };
+    }
+
     joinObjects(map) {
         const mapObjects = [];
         map.objects.forEach(object => {
@@ -239,23 +348,15 @@ class Simulator {
         return mapObjects;
     }
 
-    joinObject(object1, visuals) {
-        const object = object1.toJSON();
-        object.materials = structuredClone(visuals.materials);
-        object.images = structuredClone(visuals.images);
-        object.textures = structuredClone(visuals.textures);
-        object.object.material = structuredClone(visuals.object_material);
-        return object;
-    }
-
-    getPlayersIdsOfMap(mapId) { return Object.keys(this.maps[mapId].players); }
-
-    getMapIdOfPlayer(playerId) {
-        let res = undefined;
-        Object.entries(this.maps).forEach(([mapId, map]) => {
-            if (Object.keys(map.players).includes(playerId)) { res = mapId; }
-        });
-        return res;
+    joinObject(object, visuals) {
+        const objectJSON = object.toJSON();
+        if (visuals) {
+            if (visuals.materials) { objectJSON.materials = structuredClone(visuals.materials); }
+            if (visuals.images) { objectJSON.images = structuredClone(visuals.images); }
+            if (visuals.textures) { objectJSON.textures = structuredClone(visuals.textures); }
+            if (visuals.object_material) { objectJSON.object.material = structuredClone(visuals.object_material); }
+        }
+        return objectJSON;
     }
 
     // changePlayer() {

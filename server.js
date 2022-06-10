@@ -206,10 +206,10 @@ const { FontLoader } = require('./server/three.js');
     })
     //start map if first one
     if (Object.keys(mapState.players).length == 1) {
-      sim.startMap(data.mapId, mapState => {
+      sim.startMap(data.mapId, mapChange => {
         //send update to every player on change
         Object.keys(mapState.players).forEach(playerId => {
-          wss.send(wss.clients[playerId], "map", "updatePlayers", "success", sim.getPlayers(data.mapId))
+          wss.send(wss.clients[playerId], "map", "updateMap", "success", mapChange);
         })
       });
     }

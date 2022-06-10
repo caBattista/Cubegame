@@ -1,5 +1,5 @@
 class Engine {
-    constructor(game, settings, characters, clientId, static_objects) {
+    constructor(game, settings, characters, clientId) {
 
         this.game = game;
         this.clientId = clientId;
@@ -92,7 +92,7 @@ class Engine {
 
     createMapState(mapState) {
         this.loader = new THREE.ObjectLoader();
-        mapState.static_objects.forEach(object => {
+        mapState.objects.forEach(object => {
             if (object.images) {
                 object.images.forEach(image => {
                     image.url = this.addCid(`maps/${mapState.type}/textures/${image.url}`);
@@ -127,9 +127,24 @@ class Engine {
         }
     }
 
-    updatePlayers(players) {
-        for (const [key, values] of Object.entries(players)) {
-            this.players[key].moveTo(values);
+    updateMap(mapChange) {
+        // console.log(mapChange);
+        for (const [key, values] of Object.entries(mapChange)) {
+            let player = this.players[key];
+            if (player !== undefined) { player.moveTo(values); }
+            let object = this.scene.getObjectByProperty("uuid", key);
+            if (object !== undefined) {
+                if (values.position !== undefined) {
+                    object.position.x = values.position.x;
+                    object.position.y = values.position.y;
+                    object.position.z = values.position.z;
+                }
+                if (values.rotation !== undefined) {
+                    object.rotation.x = values.rotation.x;
+                    object.rotation.y = values.rotation.y;
+                    object.rotation.z = values.rotation.z;
+                }
+            }
         }
     }
 

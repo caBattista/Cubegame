@@ -88,9 +88,6 @@
                         "near": 0.1,
                         "far": 1000
                     }
-                },
-                "userData": {
-                    "mass": 1.1
                 }
             }
         },
@@ -748,7 +745,85 @@
                 "geometry": "0e8ff796-3abc-4ea7-8820-d735ded619fd",
                 "material": "c483a62a-e90f-4123-8ab8-746c43aadc6e",
                 "userData": {
-                    "mass": 1
+                    "physics": {
+                        "mass": 1
+                    }
+                }
+            }
+        },
+        {
+            "metadata": {
+                "version": 4.5,
+                "type": "Object",
+                "generator": "Object3D.toJSON"
+            },
+            "geometries": [
+                {
+                    "uuid": "0e8ff796-3abc-4ea7-8820-d735ded619f1",
+                    "type": "BoxGeometry",
+                    "width": 1,
+                    "height": 1,
+                    "depth": 1,
+                    "widthSegments": 1,
+                    "heightSegments": 1,
+                    "depthSegments": 1
+                }
+            ],
+            "materials": [
+                {
+                    "uuid": "c483a62a-e90f-4123-8ab8-746c43aadc61",
+                    "type": "MeshPhongMaterial",
+                    "color": 16729156,
+                    "emissive": 0,
+                    "specular": 1118481,
+                    "shininess": 30,
+                    "reflectivity": 1,
+                    "refractionRatio": 0.98,
+                    "depthFunc": 3,
+                    "depthTest": true,
+                    "depthWrite": true,
+                    "colorWrite": true,
+                    "stencilWrite": false,
+                    "stencilWriteMask": 255,
+                    "stencilFunc": 519,
+                    "stencilRef": 0,
+                    "stencilFuncMask": 255,
+                    "stencilFail": 7680,
+                    "stencilZFail": 7680,
+                    "stencilZPass": 7680
+                }
+            ],
+            "object": {
+                "uuid": "9f7daad2-d129-4b54-8227-1f07a6d32381",
+                "type": "Mesh",
+                "name": "centerCube2",
+                "castShadow": true,
+                "receiveShadow": true,
+                "layers": 1,
+                "matrix": [
+                    0.8235328712276033,
+                    -0.16850221721886782,
+                    -0.541664668221904,
+                    0,
+                    -1.3877787807814457e-17,
+                    -0.9548646163796215,
+                    0.2970413513068481,
+                    0,
+                    -0.5672685519289957,
+                    -0.24462331691505584,
+                    -0.7863623991607538,
+                    0,
+                    0,
+                    1,
+                    80,
+                    1
+                ],
+                "geometry": "0e8ff796-3abc-4ea7-8820-d735ded619f1",
+                "material": "c483a62a-e90f-4123-8ab8-746c43aadc61",
+                "userData": {
+                    "physics": {
+                        "mass": 1
+                    }
                 }
             }
         }

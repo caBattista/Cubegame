@@ -73,11 +73,11 @@ class Game {
         this.engine = new Engine(this, settings, characters, this.loader.client_id);
         this.engine.createMapState(mapState, this.loader.client_id);
 
+        this.ws.on("map", "updateMap", (status, data, send) => {
+            this.engine.updateMap(data);
+        })
         this.ws.on("map", "addPlayers", (status, data, send) => {
             this.engine.addPlayers(data);
-        })
-        this.ws.on("map", "updatePlayers", (status, data, send) => {
-            this.engine.updatePlayers(data);
         })
         this.ws.on("map", "removePlayers", (status, data, send) => {
             this.engine.removePlayers(data);
