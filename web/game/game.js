@@ -18,8 +18,8 @@ class Game {
 
         //Login (Websocket is started and added to Game after submit)
         await this.loader.load("ui/login/login", 1);
-        await new Login(this).login();
-        //await new Login(this).autoLogin("test", "test", "login");
+        //await new Login(this).login();
+        await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
 
         //Mainmenu

@@ -96,20 +96,22 @@ class Simulator {
             // if (physics.currentSpeed !== 0) {
             //     moved = true;
             // }
-        }
+
+            // air resistance
+        } else { return; }
 
         // gravity
-        map.objects.forEach(attractor => {
-            if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-                attractor.userData.physics.mass) {
-                //revesing these will attract or oppse
-                const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
-                const distance = directionVector.length();
-                const forceMagnitude =
-                    ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.01;
-                physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-            }
-        })
+        // map.objects.forEach(attractor => {
+        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+        //         attractor.userData.physics.mass) {
+        //         //revesing these will attract or oppse
+        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
+        //         const distance = directionVector.length();
+        //         const forceMagnitude =
+        //             ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.01;
+        //         physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
+        //     }
+        // })
 
         //get colission and stop movement
         // const raycaster = new THREE.Raycaster();
@@ -138,21 +140,36 @@ class Simulator {
                 Math.round(vec.z * 10000) / 10000)
         }
 
+        let currentSpeedSquared = physics.currentSpeed.length() * physics.currentSpeed.length()
+        // console.log(currentSpeedSquared);
+        let airResistanceForce = physics.currentForce.clone()
+            .negate().normalize().multiplyScalar(currentSpeedSquared)
+        physics.currentForce.add(airResistanceForce);
+
         //a=F/m
         physics.currentAcceleration = physics.currentForce.divideScalar(physics.mass);
 
         //v=a*t
         physics.currentSpeed.add(physics.currentAcceleration);
-        physics.currentSpeed.multiplyScalar(0.4);//friction
-        if (physics.currentSpeed.length() < 0.0001) { physics.currentSpeed.multiplyScalar(0); }
 
-        //s=v*t
-        object.position.add(physics.currentSpeed);
+        // //air resistance
+        if (physics.currentSpeed.length() < 0.001) { physics.currentSpeed.multiplyScalar(0); }
+        else if(physics.currentSpeed.length() < 0.3){ physics.currentSpeed.multiplyScalar(0.9); }
+        console.log(physics.currentSpeed.length());
+
+        if (isNaN(physics.currentForce.length()) || isNaN(physics.currentAcceleration.length()) || isNaN(physics.currentSpeed.length())) {
+            physics.currentForce = new THREE.Vector3();
+            physics.currentAcceleration = new THREE.Vector3();
+            physics.currentSpeed = new THREE.Vector3();
+        } else {
+            //s=v*t
+            object.position.add(physics.currentSpeed);
+        }
 
         //only submit change if moving
         if (physics.currentSpeed.length() !== 0) {
             if (object.userData.playerId !== undefined) {
-                console.log(physics);
+                //console.log(physics);
                 this.submitChange(map, object.userData.playerId, {
                     position: {
                         x: object.position.x,
@@ -215,7 +232,7 @@ class Simulator {
             Math.round(Math.random() * 199) - 99,
             1,
             Math.round(Math.random() * 199) - 99);
-        yaw.rotation.y = Math.random() * 360;
+        //yaw.rotation.y = Math.random() * 360;
         yaw.userData = {
             physics: {
                 currentForce: new THREE.Vector3(0, 0, 0),
@@ -226,8 +243,8 @@ class Simulator {
             playerId: playerId,
             controls: {
                 settings: {
-                    speed: 4,
-                    sprintSpeed: 10,
+                    speed: 0.4,
+                    sprintSpeed: 1,
                 },
                 actions: {
                     controls_forward: { pressed: false },
