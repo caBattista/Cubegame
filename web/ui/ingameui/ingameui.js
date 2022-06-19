@@ -41,6 +41,7 @@ class Ingameui extends Ui {
         this.ingamemenu = this.createHTML(`
             <div class="ingamemenu">
                 <input type="submit" value="Back To Main Menu">
+                ${this.game.loader.client_id}
             </div>
             `, document.body);
         this.ingamemenu.children[0].addEventListener("click", ev => {

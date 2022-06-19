@@ -1,5 +1,3 @@
-const { FontLoader } = require('./server/three.js');
-
 (async () => {//to be able to use await to define init order
   //#################################### Heroku ####################################################
   const heroku = process.env.PORT ? true : false;
@@ -129,7 +127,18 @@ const { FontLoader } = require('./server/three.js');
 
   //Websocket disconnect
   wss.on("websocket", "disconnect", async (data, client) => {
-    sim.removePlayerFromMap(client.id, true);
+    const simData = sim.removePlayerFromMap(client.id);
+    if (simData !== undefined) {
+      if (simData.playerIds.length > 0) {
+        //send info to other clients
+        simData.playerIds.forEach(playerId => {
+          wss.send(wss.clients[playerId], "map", "removeObjects", "success", simData.removedObjectIds)
+        })
+      } else {
+        //stop map if last one
+        db.updateMap(sim.stopMap(simData.mapId));
+      }
+    }
     const dbRes = await db.removeUserClientId(client.id);
     if (dbRes !== true) { console.log("\x1b[33m%s\x1b[0m", "REQHANDLE:", "err deleting client_id"); return; }
   });
@@ -197,70 +206,45 @@ const { FontLoader } = require('./server/three.js');
 
   wss.on("map", "join", (data, client, send) => {
     //Add client to map in simulator
-    const mapState = sim.addPlayerToMap(client.id, data.mapId);
+    const { type, objects, playerIds, newPlayerObjects } = sim.addPlayerToMap(client.id, data.mapId);
     //send map state to everyone but client
-    Object.keys(mapState.players).forEach(playerId => {
+    playerIds.forEach(playerId => {
       if (playerId !== client.id) {
-        wss.send(wss.clients[playerId], "map", "addPlayers", "success", { [client.id]: sim.getPlayer(client.id) })
+        wss.send(wss.clients[playerId], "map", "addObjects", "success", { type: type, objects: newPlayerObjects })
       }
     })
     //start map if first one
-    if (Object.keys(mapState.players).length == 1) {
-      sim.startMap(data.mapId, mapChange => {
-        //send update to every player on change
-        Object.keys(mapState.players).forEach(playerId => {
+    if (playerIds.length == 1) {
+      sim.startMap(data.mapId, (playerIds, mapChange) => {
+        //send update to every player on change (including self)
+        playerIds.forEach(playerId => {
           wss.send(wss.clients[playerId], "map", "updateMap", "success", mapChange);
         })
       });
     }
     //Send map state to client
-    send("success", mapState);
+    send("success", { type: type, objects: objects });
   });
 
   wss.on("map", "leave", (data, client, send) => {
     //remove client from map in sim
-    const mapState = sim.removePlayerFromMap(client.id);
-    //send info to other clients
-    Object.keys(mapState.players).forEach(playerId => {
-      wss.send(wss.clients[playerId], "map", "removePlayers", "success", { [client.id]: {} })
-    })
-    //stop map if last one
-    if (Object.keys(mapState.players).length < 1) {
-      db.updateMap(sim.stopMap(mapState.id));
+    const { mapId, playerIds, removedObjectIds } = sim.removePlayerFromMap(client.id);
+    if (playerIds.length > 0) {
+      //send info to other clients
+      playerIds.forEach(playerId => {
+        wss.send(wss.clients[playerId], "map", "removeObjects", "success", removedObjectIds)
+      })
+    } else {
+      //stop map if last one
+      db.updateMap(sim.stopMap(mapId));
     }
     //send success to client
     send("success");
   });
 
   wss.on("map", "playerControl", (data, client, send) => {
-    const res = sim.controlPlayer(client.id, data);
-    if (res !== true) { wss.closeConnection(client.id, 4100, res); }
+    sim.controlPlayer(client.id, data);
   });
-
-  // wss.on("map", "change", (data, client, send) => {
-  //   console.log("\x1b[33m%s\x1b[0m", "REQHANDLE:", "change");
-  //   if (data.changes.self) {
-  //     const res = sim.changePlayer(client.id, data.changes.self);
-  //     if (res === true) {
-  //       wss.closeConnection(client.id, 4100, "Violation");
-  //     } else {
-  //       const players = sim.getPlayersIdsOfMap(sim.getMapIdOfPlayer(client.id));
-  //       //players.splice(players.indexOf(client.id), 1);
-  //       players.forEach(playerId => { 
-  //         wss.send(wss.clients[playerId], "map", "updatePlayers", "success", sim.getPlayer(client.id))
-  //       })
-  //     }
-  //   }
-  // });
-
-  // //Anti Cheat System
-  // setInterval(() => {
-  //   const offenders = sim.removeOffenders();
-  //   offenders.forEach(offender => {
-  //     wss.send(wss.clients[offender.id], { offences: offender.offences })
-  //     wss.closeConnection(offender.id, 4100, "Violation");
-  //   })
-  // }, 10000);
 
   /*
   //On Close

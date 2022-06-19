@@ -7,8 +7,8 @@ class Controls {
         // ################ Mouse (Camera movement) ################
 
         //set start rotation
-        this.rotation = { yaw: this.player.elements.yaw.rotation.y, pitch: this.player.elements.pitch.rotation.x };
-        this.rotationPrev = { yaw: this.player.elements.yaw.rotation.y, pitch: this.player.elements.pitch.rotation.x };
+        this.rotation = { yaw: this.player.rotation.y, pitch: this.player.children[0].rotation.x };
+        this.rotationPrev = { yaw: this.player.rotation.y, pitch: this.player.children[0].rotation.x };
 
         //loop to throttle mouse move events sent to Server
         this.controlInterval = setInterval(() => {
@@ -28,8 +28,8 @@ class Controls {
             this.rotation.yaw = this.cleanRotation(this.rotation.yaw - ev.movementX * 0.002);
             this.rotation.pitch = this.cleanRotation(this.rotation.pitch + ev.movementY * 0.002);
             //control camera immediately
-            // this.player.elements.yaw.rotation.y = this.rotation.yaw;
-            // this.player.elements.pitch.rotation.x = this.rotation.pitch;
+            // this.player.rotation.y = this.rotation.yaw;
+            // this.player.children[0].rotation.x = this.rotation.pitch;
         }
 
         const lockChange = (ev) => {

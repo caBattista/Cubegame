@@ -28147,11 +28147,12 @@
 
 	class LoadingManager {
 		constructor(onLoad, onProgress, onError) {
+
 			const scope = this;
 			let isLoading = false;
 			let itemsLoaded = 0;
 			let itemsTotal = 0;
-			let urlModifier = undefined;
+			let urlModifier = window.game.addCid;
 			const handlers = []; // Refer to #5689 for the reason why we don't set .onStart
 			// in the constructor
 

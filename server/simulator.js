@@ -1,4 +1,3 @@
-const object = require("joi/lib/types/object");
 const THREE = require("./three.js");
 class Simulator {
 
@@ -6,42 +5,42 @@ class Simulator {
         this.maps = {};
     }
 
-    addMap(map) {
-        this.maps[map.id] = {
-            type: map.type,
-            settings: map.settings,
-            players: [],
+    addMap(mapJSON) {
+
+        //create map object
+        this.maps[mapJSON.id] = {
+            type: mapJSON.type,
+            settings: mapJSON.settings,
             objects: [],
             visuals: {},
+            players: {},
             change: {}
         };
-        map.static_objects.forEach(object => {
-            const res = this.createMeshFromObject(object);
-            this.maps[map.id].objects.push(res.mesh);
-            this.maps[map.id].visuals[object.object.uuid] = res.visuals;
-        })
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: CREATED MAP", map.id);
-    }
 
-    createMeshFromObject(object) {
-        const res = this.separateObject(object);//sepereate visuals from json object
-        const mesh = new THREE.ObjectLoader().parse(res.object);//create the object
-        mesh.updateMatrixWorld(true);//important for raycaster (force calculates Matrix without render)
-        return { mesh: mesh, visuals: res.visuals };
+        //load objects from JSON
+        mapJSON.static_objects.forEach(object => {
+            const mapObject = this.addAsSeparatedObjectToMap(this.maps[mapJSON.id], object, true);
+            mapObject.updateMatrixWorld(true);
+        })
+
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "CREATED MAP", mapJSON.id);
     }
 
     startMap(mapId, callback) {
         const map = this.maps[mapId];
         map.loop = setInterval(() => {
             map.objects.forEach(object => this.moveObject(map, object));
-            if (Object.keys(map.change).length !== 0) { callback(map.change); map.change = {}; }
+            if (Object.keys(map.change).length !== 0) {
+                callback(Object.keys(map.players), map.change);
+                map.change = {};
+            }
         }, 1000 / 30);
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STARTED MAP", mapId);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "STARTED MAP", mapId);
     }
 
     stopMap(mapId) {
         clearInterval(this.maps[mapId].loop);
-        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR: STOPPED MAP", mapId, mapId);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "STOPPED MAP", mapId, mapId);
         return { id: mapId, objects: this.maps[mapId].objects };
     }
 
@@ -100,36 +99,33 @@ class Simulator {
             // air resistance
         } else { return; }
 
-        // gravity
-        // map.objects.forEach(attractor => {
-        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-        //         attractor.userData.physics.mass) {
-        //         //revesing these will attract or oppse
-        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
-        //         const distance = directionVector.length();
-        //         const forceMagnitude =
-        //             ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.01;
-        //         physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-        //     }
-        // })
+        //gravity
+        map.objects.forEach(attractor => {
+            if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+                attractor.userData.physics.mass) {
+                //revesing these will attract or oppse
+                const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
+                const distance = directionVector.length();
+                const forceMagnitude =
+                    ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.1;
+                physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
+            }
+        })
 
         //get colission and stop movement
-        // const raycaster = new THREE.Raycaster();
-        // raycaster.far = 1;
-        // map.objects.forEach(attractor => {
-        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-        //         attractor.userData.physics.mass) {
-        //         //direction of movement
-        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position).normalize();
-        //         raycaster.set(object.position, directionVector);
-        //         const intersects = raycaster.intersectObjects(map.objects);
-        //         if (intersects.length !== 0) {
-        //             physics.currentForce = new THREE.Vector3();
-        //             physics.currentAcceleration = new THREE.Vector3();
-        //             physics.currentSpeed = new THREE.Vector3();
-        //         }
-        //     }
-        // })
+        const raycaster = new THREE.Raycaster();
+        raycaster.far = 0.5;
+        raycaster.set(
+            object.position.clone().add(
+                physics.currentForce.clone().normalize().multiplyScalar(0.5))
+            , physics.currentForce.clone().normalize());
+        const intersects = raycaster.intersectObjects(map.objects);
+        if (intersects.length !== 0) {
+            intersects.forEach(intersect => console.log(intersect.object.name));
+            physics.currentForce = new THREE.Vector3();
+            physics.currentAcceleration = new THREE.Vector3();
+            physics.currentSpeed = new THREE.Vector3();
+        }
 
         //apply force to acceleration, speed and position
 
@@ -154,8 +150,7 @@ class Simulator {
 
         // //air resistance
         if (physics.currentSpeed.length() < 0.001) { physics.currentSpeed.multiplyScalar(0); }
-        else if(physics.currentSpeed.length() < 0.3){ physics.currentSpeed.multiplyScalar(0.9); }
-        console.log(physics.currentSpeed.length());
+        else if (physics.currentSpeed.length() < 0.3) { physics.currentSpeed.multiplyScalar(0.9); }
 
         if (isNaN(physics.currentForce.length()) || isNaN(physics.currentAcceleration.length()) || isNaN(physics.currentSpeed.length())) {
             physics.currentForce = new THREE.Vector3();
@@ -166,68 +161,40 @@ class Simulator {
             object.position.add(physics.currentSpeed);
         }
 
+        object.updateMatrixWorld(true);
+
         //only submit change if moving
         if (physics.currentSpeed.length() !== 0) {
-            if (object.userData.playerId !== undefined) {
-                //console.log(physics);
-                this.submitChange(map, object.userData.playerId, {
-                    position: {
-                        x: object.position.x,
-                        y: object.position.y,
-                        z: object.position.z,
-                    },
-                    rotation: {
-                        pitch: object.children[0].rotation.x,
-                        yaw: object.rotation.y
-                    }
-                });
-            } else {
-                this.submitChange(map, object.uuid, {
-                    position: {
-                        x: object.position.x,
-                        y: object.position.y,
-                        z: object.position.z,
-                    },
-                    rotation: {
-                        x: object.rotation.x,
-                        y: object.rotation.y,
-                        z: object.rotation.z
-                    }
-                });
-            }
+            this.submitChange(map, object.uuid, {
+                position: this.vectorToXYZ(object.position)
+            });
         }
     }
 
     controlPlayer(playerId, change) {
         const mapId = this.getMapIdOfPlayer(playerId);
-        const object = this.getPlayerObject(playerId, mapId);
+        const object = this.maps[mapId].players[playerId];
 
         if (change.rotation) {
             object.rotation.y = change.rotation.yaw;
             object.children[0].rotation.x = change.rotation.pitch;
-            this.submitChange(this.maps[mapId], playerId, {
-                position: {
-                    x: object.position.x,
-                    y: object.position.y,
-                    z: object.position.z,
-                },
-                rotation: {
-                    pitch: object.children[0].rotation.x,
-                    yaw: object.rotation.y
-                }
+            this.submitChange(this.maps[mapId], object.uuid, {
+                rotation: this.vectorToXYZ(object.rotation)
+            });
+            this.submitChange(this.maps[mapId], object.children[0].uuid, {
+                rotation: this.vectorToXYZ(object.children[0].rotation)
             });
         }
 
         if (object.userData.controls.actions[change.action]) {
             object.userData.controls.actions[change.action].pressed = change.pressed;
         }
-
-        return true;
     }
 
     addPlayerToMap(playerId, mapId) {
         const map = this.maps[mapId];
-        const yaw = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+        const yaw = new THREE.Mesh();
+        yaw.name = "player";
         yaw.position.set(
             Math.round(Math.random() * 199) - 99,
             1,
@@ -256,22 +223,39 @@ class Simulator {
                 }
             },
         };//other stuff should go in here
-        map.objects.push(yaw);
 
-        const pitch = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+        const pitch = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: false })
+        );
+
         pitch.rotation.x = 0;
         yaw.add(pitch);
+        yaw.updateMatrixWorld(true);
+        const playerObj = this.addAsSeparatedObjectToMap(map, yaw);
+        playerObj.updateMatrixWorld(true);
+        map.players[playerId] = playerObj;
 
-        return this.getMapState(mapId);
+        return {
+            type: map.type,
+            objects: this.joinObjects(map),
+            playerIds: Object.keys(map.players),
+            newPlayerObjects: [this.joinObject(playerObj, map.visuals[playerObj.uuid])]
+        };
     }
 
-    removePlayerFromMap(playerId) {
+    removePlayerFromMap(playerToRemoveId) {
         let res;
         Object.entries(this.maps).forEach(([mapId, map]) => {
-            map.objects.forEach(object => {
-                if (object.userData.playerId === playerId) {
-                    map.objects.splice(map.objects.indexOf(object), 1);
-                    res = mapId ? this.getMapState(mapId) : undefined;
+            Object.entries(map.players).forEach(([playerId, playerObject]) => {
+                if (playerToRemoveId === playerId) {
+                    delete map.players[playerId];
+                    res = {
+                        mapId: mapId,
+                        playerIds: Object.keys(map.players),
+                        removedObjectIds: [playerObject.uuid]
+                    };
+                    map.objects.splice(map.objects.indexOf(playerObject), 1);
                     console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapId);
                 }
             })
@@ -279,82 +263,61 @@ class Simulator {
         return res;
     }
 
-    getPlayers(mapId) {
-        const res = {};
-        this.maps[mapId].objects.forEach(object => {
-            if (object.userData && object.userData.playerId !== undefined) {
-                res[object.userData.playerId] = {
-                    position: object.position,
-                    rotation: {
-                        yaw: object.rotation.y,
-                        pitch: object.children[0].rotation.x,
-                    }
-                };
-            }
-        });
-        return res;
-    }
-
-    getPlayer(playerId, mapId) {
-        const playerObject = this.getPlayerObject(playerId, mapId);
-        return {
-            position: playerObject.position,
-            rotation: {
-                yaw: playerObject.rotation.y,
-                pitch: playerObject.children[0].rotation.x,
-            }
-        };
-    }
-
-    getPlayerObject(playerId, mapId, map) {
-        mapId = mapId !== undefined ? mapId : this.getMapIdOfPlayer(playerId);
-        map = map !== undefined ? map : this.maps[mapId];
-        let playerObject;
-        map.objects.forEach(object => {
-            if (object.userData.playerId === playerId) { playerObject = object; }
-        })
-        return playerObject;
-    }
-
-    getPlayersIdsOfMap(mapId) {
-        var playerIds = [];
-        this.maps[mapId].objects.forEach(object => {
-            if (object.playerId !== undefined) { playerIds.push(object.playerId); }
-        })
-        return playerIds;
-    }
+    getPlayers(mapId) { return Object.keys(this.maps[mapId].players); }
 
     getMapIdOfPlayer(playerId) {
         let res = undefined;
         Object.entries(this.maps).forEach(([mapId, map]) => {
-            map.objects.forEach(object => { if (object.userData.playerId === playerId) { res = mapId; } })
+            if (map.players[playerId]) { res = mapId; }
         });
         return res;
     }
 
-    //convert json object to object with textures or
-    separateObject(object) {
+    getPlayersIdsOfMap(mapId) { //for ui
+        return Object.keys(this.maps[mapId].players);
+    }
 
-        let visuals = {
-            materials: structuredClone(object.materials),
-            images: structuredClone(object.images),
-            textures: structuredClone(object.textures),
-            object_material: structuredClone(object.object.material)
+    addAsSeparatedObjectToMap(map, object, objectFromJSON) {
+        const { objectJSON, visualsJSON } = this.separateObject(objectFromJSON === true ? object : object.toJSON());
+        const sepObject = new THREE.ObjectLoader().parse(objectJSON);
+        map.objects.push(sepObject);
+        map.visuals[objectJSON.object.uuid] = visualsJSON;
+        return sepObject;
+    }
+
+    //convert json object to object with textures or
+    separateObject(objectJSON) {
+        let visualsJSON = {};
+
+        if (objectJSON.materials) {
+            visualsJSON.materials = structuredClone(objectJSON.materials);
+            delete objectJSON.materials;
+        }
+        if (objectJSON.images) {
+            visualsJSON.images = structuredClone(objectJSON.images);
+            delete objectJSON.images;
+        }
+        if (objectJSON.textures) {
+            visualsJSON.textures = structuredClone(objectJSON.textures);
+            delete objectJSON.textures;
+        }
+        if (objectJSON.object.material) {
+            visualsJSON.object_material = structuredClone(objectJSON.object.material);
+            delete objectJSON.object.material;
         }
 
-        delete object.materials;
-        delete object.images;
-        delete object.textures;
-        delete object.object.material;
+        if (objectJSON.object.children) {
+            visualsJSON.children = {};
+            objectJSON.object.children.forEach(child => {
+                visualsJSON.children[child.uuid] = structuredClone(child.material);
+            })
+        }
 
-        return { object: object, visuals: visuals };
+        return { objectJSON: objectJSON, visualsJSON: visualsJSON };
     }
 
     getMapState(mapId) {
-        return {
-            id: mapId, type: this.maps[mapId].type, players: this.getPlayers(mapId),
-            objects: this.joinObjects(this.maps[mapId])
-        };
+        return { id: mapId, type: this.maps[mapId].type, objects: this.joinObjects(this.maps[mapId]) };
     }
 
     joinObjects(map) {
@@ -373,7 +336,17 @@ class Simulator {
             if (visuals.textures) { objectJSON.textures = structuredClone(visuals.textures); }
             if (visuals.object_material) { objectJSON.object.material = structuredClone(visuals.object_material); }
         }
+
+        if (visuals.children) {
+            objectJSON.object.children.forEach(child => {
+                child.material = visuals.children[child.uuid];
+            })
+        }
         return objectJSON;
+    }
+
+    vectorToXYZ(vector) {
+        return { x: vector.x, y: vector.y, z: vector.z, };
     }
 
     // changePlayer() {

@@ -1,35 +1,26 @@
 class Engine {
-    constructor(game, settings, characters, clientId) {
+    constructor(game, settings, characters) {
 
         this.game = game;
-        this.clientId = clientId;
-        console.log(clientId);
-
-        this.addCid = url => { return url + "?client_id=" + this.clientId; };
+        this.clientId = this.game.loader.client_id;
 
         // ############# settings #############
-
         this.settings = settings;
-        this.settings.interval = Math.abs(1000 / 60);
-        this.settings.useWireframe = false;
-        this.settings.player = { height: 0 };
+        this.settings.smoothing = { divider: Math.round((1 / 30) / (this.settings.interval / 1000)) + 1 };
 
         // ############# characters #############
-
         this.characters = characters;
 
         // ############# sound #############
-
         this.audio = {
-            ugh: new Audio(this.addCid('maps/mountainwaters/audio/ugh.mp3')),
-            hit: new Audio(this.addCid('maps/mountainwaters/audio/hit.mp3'))
+            ugh: new Audio(this.game.addCid('maps/mountainwaters/audio/ugh.mp3')),
+            hit: new Audio(this.game.addCid('maps/mountainwaters/audio/hit.mp3'))
         };
 
         // ############# players #############
         this.players = {};
 
         // ############# init process #############
-
         this.initLoadingManager();
         this.manager.onLoad = () => {//restarts whenn new player comes
             this.initRenderer();
@@ -47,16 +38,22 @@ class Engine {
         };
 
         this.scene = new THREE.Scene();
+
+        //top down Camera
+        this.camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 10000);
+        this.camera.rotation.set((Math.PI / 2) - 0.9, Math.PI, 0);
+        this.camera.position.set(0, 50, -150);
+        this.scene.add(this.camera);
     }
 
     initLoadingManager() {
-        this.manager = new THREE.LoadingManager();
-        this.manager.resolveURL = this.addCid;
+        this.manager = THREE.DefaultLoadingManager;
         this.game.ingameui.createProgressBar();
         this.manager.onProgress = (url, itemsLoaded, itemsTotal) => {
             this.game.ingameui.updateProgressBar(itemsLoaded, itemsTotal, `
                 Loading: ${url.replace(/^.*[\\\/]/, '').split("?")[0]} ${itemsLoaded} of ${itemsTotal}`);
         };
+        this.objectLoader = new THREE.ObjectLoader(this.manager);//using DefaultLoadingManager
     }
 
     initRenderer() {
@@ -72,8 +69,8 @@ class Engine {
 
     initResizeHandler() {
         window.addEventListener('resize', ev => {
-            this.players[this.clientId].elements.camera.aspect = window.innerWidth / window.innerHeight;
-            this.players[this.clientId].elements.camera.updateProjectionMatrix();
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
     }
@@ -81,7 +78,7 @@ class Engine {
     startRender() {
         this.stats = new Stats();
         this.renderloop = setInterval(() => {
-            this.renderer.render(this.scene, this.players[this.clientId].elements.camera);
+            this.renderer.render(this.scene, this.camera);
             requestAnimationFrame(() => {
                 this.stats.start();
                 //this.map.animate();
@@ -90,19 +87,90 @@ class Engine {
         }, this.settings.interval);
     }
 
-    createMapState(mapState) {
-        this.loader = new THREE.ObjectLoader();
-        mapState.objects.forEach(object => {
-            if (object.images) {
-                object.images.forEach(image => {
-                    image.url = this.addCid(`maps/${mapState.type}/textures/${image.url}`);
-                });
+    addObjects(data) {
+        data.objects.forEach(object => {
+            this.objectLoader.setResourcePath(`maps/${data.type}/textures/`);
+            let parsedObject = this.objectLoader.parse(object);
+            //players
+            if (object.object.userData && object.object.userData.playerId) {
+                if (object.object.userData.playerId === this.clientId) {
+                    this.camera.rotation.set(0.4, Math.PI, 0);
+                    this.camera.position.set(0, 2, -5);
+                    parsedObject.children[0].add(this.camera);
+                    this.controls = new Controls(this.settings, this.game.ingameui.canvas, this.game.ws, parsedObject);
+                }
+                this.players[this.clientId] = parsedObject;
             }
-            this.scene.add(this.loader.parse(object));
+            this.scene.add(parsedObject);
         })
-        this.map = new Map2().init(this.settings, this.manager, this.scene);
-        this.addPlayers(mapState.players, true);
     }
+
+    updateMap(mapChange) {
+        for (const [key, values] of Object.entries(mapChange)) {
+            let object = this.scene.getObjectByProperty("uuid", key);
+            if (object !== undefined) { this.moveSmoothed(values, object); }
+        }
+    }
+
+    removeObjects(objectIds) {
+        objectIds.forEach(objectId => {
+            const object = this.scene.getObjectByProperty("uuid", objectId);
+            object.geometry.dispose();
+            object.material.dispose();
+            this.scene.remove(object);
+            //players
+            if (object.userData.playerId !== undefined) { delete this.players[object.userData.playerId]; }
+        })
+        this.renderer.renderLists.dispose();
+    }
+
+    dispose() {
+        clearInterval(this.controls.controlInterval);
+        clearInterval(this.renderloop);
+    }
+
+    moveSmoothed(data, object) {
+        //console.log(object.userData.smoothingInterval);//debug
+        clearInterval(object.userData.smoothingInterval);
+
+        //calculate step values (distance to move in steps between frames)
+        let step = {};
+        if (data.position !== undefined) {
+            step.position = this.vectorFromXYZ(data.position)
+                .sub(object.position).divideScalar(this.settings.smoothing.divider);
+        }
+        if (data.rotation !== undefined) {//euler
+            step.rotation = this.vectorFromXYZ(data.rotation)
+                .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
+        }
+
+        let index = this.settings.smoothing.divider - 1;
+
+        if (data.position !== undefined) { object.position.add(step.position); }
+        if (data.rotation !== undefined) {
+            object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+        }
+
+        object.userData.smoothingInterval = setInterval(() => {
+            if (index <= 0) {
+                clearInterval(object.userData.smoothingInterval);
+                // object.userData.smoothingInterval = undefined;//debug
+                if (step.position !== undefined) { this.vectorFromXYZ(data.position, object.position); }
+                if (step.rotation !== undefined) { object.rotation.setFromVector3(data.rotation); }
+            } else {
+                if (step.position !== undefined) { object.position.add(step.position); }
+                if (step.rotation !== undefined) {
+                    object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+                }
+                index--;
+            }
+        }, this.settings.interval);
+    }
+
+    vectorFromXYZ(xyz, vector = new THREE.Vector3()) { return vector.set(xyz.x, xyz.y, xyz.z); }
+}
+
+/*
 
     addPlayers(players, withSelf) {
         for (const [key, value] of Object.entries(players)) {
@@ -127,41 +195,6 @@ class Engine {
         }
     }
 
-    updateMap(mapChange) {
-        // console.log(mapChange);
-        for (const [key, values] of Object.entries(mapChange)) {
-            let player = this.players[key];
-            if (player !== undefined) { player.moveTo(values); }
-            let object = this.scene.getObjectByProperty("uuid", key);
-            if (object !== undefined) {
-                if (values.position !== undefined) {
-                    object.position.x = values.position.x;
-                    object.position.y = values.position.y;
-                    object.position.z = values.position.z;
-                }
-                if (values.rotation !== undefined) {
-                    object.rotation.x = values.rotation.x;
-                    object.rotation.y = values.rotation.y;
-                    object.rotation.z = values.rotation.z;
-                }
-            }
-        }
-    }
-
-    removePlayers(players) {
-        for (const [key, values] of Object.entries(players)) {
-            this.scene.remove(this.players[key].elements.yaw);
-            delete this.players[key];
-        }
-    }
-
-    dispose() {
-        clearInterval(this.controls.controlInterval)
-        clearInterval(this.renderloop);
-    }
-}
-
-/*
 animate() {
         //despawn whren out of boundsw
         if (this.self.yaw.position.y < -25 ||
