@@ -8,21 +8,23 @@ class Game {
         //console.log = function () { }
     }
 
-    async start() {
-        this.headers = new Headers();
-        this.headers.set('cliendId', this.loader.client_id);
 
+    async start() {
         //Load UI
         await this.loader.load("ui/ui", 1);
         this.ui = new Ui(this);
 
         //Login (Websocket is started and added to Game after submit)
         await this.loader.load("ui/login/login", 1);
-        //await new Login(this).login();
-        await new Login(this).autoLogin("test", "test", "login");
+        await new Login(this).login();
+        //await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
 
-        //Mainmenu
+        //add cid
+        console.log("clientId", this.loader.client_id);
+        this.addCid = url => { return url + "?client_id=" + this.loader.client_id; };
+
+        //Mainmenu 
         await this.loader.load("ui/mainmenu/mainmenu", 1);
 
         this.mainmenu = new Mainmenu(this);
@@ -66,28 +68,37 @@ class Game {
         await this.loader.load("maps/mountainwaters/map");
 
         const settings = await this.ws.request("settings", "get");
+        settings.interval = await this.getClientInterval();
+        console.log();
         const characters = await this.ws.request("characters", "get");
-        const mapState = await this.ws.request("map", "join", { mapId: mapId });
-        console.log("mapstate", mapState);
+        const data = await this.ws.request("map", "join", { mapId: mapId });
+        console.log("mapstate", data);
 
-        this.engine = new Engine(this, settings, characters, this.loader.client_id);
-        this.engine.createMapState(mapState, this.loader.client_id);
+        this.engine = new Engine(this, settings, characters);
+        this.engine.addObjects(data);
 
         this.ws.on("map", "updateMap", (status, data, send) => {
             this.engine.updateMap(data);
         })
-        this.ws.on("map", "addPlayers", (status, data, send) => {
-            this.engine.addPlayers(data);
+        this.ws.on("map", "addObjects", (status, data, send) => {
+            this.engine.addObjects(data);
         })
-        this.ws.on("map", "removePlayers", (status, data, send) => {
-            this.engine.removePlayers(data);
+        this.ws.on("map", "removeObjects", (status, data, send) => {
+            this.engine.removeObjects(data);
         })
     }
 
+    getClientInterval() {
+        return new Promise(resolve =>
+            requestAnimationFrame(t1 =>
+                requestAnimationFrame(t2 => resolve(t2 - t1))
+            ))
+    }
+
     async leaveMap() {
-        this.ws.removeHandler("map", "addPlayers");
-        this.ws.removeHandler("map", "updatePlayers");
-        this.ws.removeHandler("map", "removePlayers");
+        this.ws.removeHandler("map", "addObjects");
+        this.ws.removeHandler("map", "updateObjects");
+        this.ws.removeHandler("map", "removeObjects");
         this.engine.dispose();
         delete this.ingamemenu;
         delete this.engine;
