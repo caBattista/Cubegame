@@ -333,6 +333,7 @@ class Simulator {
             if (visuals.images) { objectJSON.images = structuredClone(visuals.images); }
             if (visuals.textures) { objectJSON.textures = structuredClone(visuals.textures); }
             if (visuals.object_material) { objectJSON.object.material = structuredClone(visuals.object_material); }
+            
         }
 
         if (visuals.children) {
