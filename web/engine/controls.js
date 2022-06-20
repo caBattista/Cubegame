@@ -18,18 +18,10 @@ class Controls {
                 this.rotationPrev = JSON.parse(JSON.stringify(this.rotation));
             }
         }, 1000 / 30);
-
-        // setInterval(() => {
-        //     this.rotation.yaw -= 1 * 0.002;
-        //     this.rotation.pitch += 1 * 0.002;
-        // }, 8);
-
+        
         const mouseMoveHandler = ev => {
-            this.rotation.yaw = this.cleanRotation(this.rotation.yaw - ev.movementX * 0.002);
-            this.rotation.pitch = this.cleanRotation(this.rotation.pitch + ev.movementY * 0.002);
-            //control camera immediately
-            // this.player.rotation.y = this.rotation.yaw;
-            // this.player.children[0].rotation.x = this.rotation.pitch;
+            this.rotation.yaw = this.rotation.yaw - ev.movementX * 0.002;
+            this.rotation.pitch = this.rotation.pitch + ev.movementY * 0.002;
         }
 
         const lockChange = (ev) => {
@@ -70,34 +62,4 @@ class Controls {
             if (keyAction !== undefined) { this.ws.request("map", "playerControl", { action: keyAction, pressed: false }); }
         });
     }
-
-    cleanRotation(rotation) {
-        // if (rotation >= 2 * Math.PI) { rotation -= 2 * Math.PI }
-        // if (rotation < 0) { rotation += 2 * Math.PI }
-        return Math.round(rotation * 100000) / 100000;
-    }
-
-    // animate(player) {
-    //     let doOrder = { set: [], fion: [], fifo: [] };
-    //     Object.keys(this.controlState.pressedKeys).forEach(key => {
-    //         if (this.keyMap[key]) {
-    //             if (this.keyMap[key].type === "set") {
-    //                 doOrder.set.push(this.keyMap[key].action);
-    //             } else { doOrder.fifo.push(this.keyMap[key].action); }
-    //         }
-    //     });
-    //     player.do("setDefaults");
-    //     //player.do("moveForward");
-    //     doOrder.set.forEach(action => { player.do(action); })
-    //     doOrder.fion.forEach(action => { player.do(action); })
-    //     doOrder.fifo.forEach(action => { player.do(action); })
-
-    //     //Change Ceck
-    //     const curentPosRot = player.getPosRot();
-    //     this.posRot = this.posRot ? this.posRot : curentPosRot;
-    //     const changed = this.checkChange(this.posRot, curentPosRot);
-    //     this.posRot = curentPosRot;
-    //     return changed;
-    // }
-
 }

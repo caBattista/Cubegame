@@ -127,16 +127,16 @@
 
   //Websocket disconnect
   wss.on("websocket", "disconnect", async (data, client) => {
-    const simData = sim.removePlayerFromMap(client.id);
-    if (simData !== undefined) {
-      if (simData.playerIds.length > 0) {
+    const { mapId, playerIds, removedObjectIds } = sim.removePlayerFromMap(client.id);
+    if (mapId !== undefined) {
+      if (playerIds.length > 0) {
         //send info to other clients
-        simData.playerIds.forEach(playerId => {
-          wss.send(wss.clients[playerId], "map", "removeObjects", "success", simData.removedObjectIds)
+        playerIds.forEach(playerId => {
+          wss.send(wss.clients[playerId], "map", "removeObjects", "success", removedObjectIds)
         })
       } else {
         //stop map if last one
-        db.updateMap(sim.stopMap(simData.mapId));
+        db.updateMap(sim.stopMap(mapId));
       }
     }
     const dbRes = await db.removeUserClientId(client.id);

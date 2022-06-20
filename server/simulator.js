@@ -97,35 +97,35 @@ class Simulator {
             // }
 
             // air resistance
-        } else { return; }
-
-        //gravity
-        map.objects.forEach(attractor => {
-            if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-                attractor.userData.physics.mass) {
-                //revesing these will attract or oppse
-                const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
-                const distance = directionVector.length();
-                const forceMagnitude =
-                    ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.1;
-                physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-            }
-        })
-
-        //get colission and stop movement
-        const raycaster = new THREE.Raycaster();
-        raycaster.far = 0.5;
-        raycaster.set(
-            object.position.clone().add(
-                physics.currentForce.clone().normalize().multiplyScalar(0.5))
-            , physics.currentForce.clone().normalize());
-        const intersects = raycaster.intersectObjects(map.objects);
-        if (intersects.length !== 0) {
-            intersects.forEach(intersect => console.log(intersect.object.name));
-            physics.currentForce = new THREE.Vector3();
-            physics.currentAcceleration = new THREE.Vector3();
-            physics.currentSpeed = new THREE.Vector3();
         }
+
+        // //gravity
+        // map.objects.forEach(attractor => {
+        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+        //         attractor.userData.physics.mass) {
+        //         //revesing these will attract or oppse
+        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
+        //         const distance = directionVector.length();
+        //         const forceMagnitude =
+        //             ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.1;
+        //         physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
+        //     }
+        // })
+
+        // //get colission and stop movement
+        // const raycaster = new THREE.Raycaster();
+        // raycaster.far = 0.5;
+        // raycaster.set(
+        //     object.position.clone().add(
+        //         physics.currentForce.clone().normalize().multiplyScalar(0.5))
+        //     , physics.currentForce.clone().normalize());
+        // const intersects = raycaster.intersectObjects(map.objects);
+        // if (intersects.length !== 0) {
+        //     intersects.forEach(intersect => console.log(intersect.object.name));
+        //     physics.currentForce = new THREE.Vector3();
+        //     physics.currentAcceleration = new THREE.Vector3();
+        //     physics.currentSpeed = new THREE.Vector3();
+        // }
 
         //apply force to acceleration, speed and position
 
@@ -245,16 +245,14 @@ class Simulator {
     }
 
     removePlayerFromMap(playerToRemoveId) {
-        let res;
+        let res = { mapId: undefined, playerIds: [], removedObjectIds: [] };
         Object.entries(this.maps).forEach(([mapId, map]) => {
             Object.entries(map.players).forEach(([playerId, playerObject]) => {
                 if (playerToRemoveId === playerId) {
                     delete map.players[playerId];
-                    res = {
-                        mapId: mapId,
-                        playerIds: Object.keys(map.players),
-                        removedObjectIds: [playerObject.uuid]
-                    };
+                    res.mapId = mapId;
+                    res.playerIds = Object.keys(map.players);
+                    res.removedObjectIds = [playerObject.uuid];
                     map.objects.splice(map.objects.indexOf(playerObject), 1);
                     console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "REMOVED", playerId, "FROM MAP", mapId);
                 }

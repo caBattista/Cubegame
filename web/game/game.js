@@ -3,11 +3,9 @@ class Game {
     //Starts here from Index.html
     constructor(loader) {
         this.loader = loader;
-
         //Debug
         //console.log = function () { }
     }
-
 
     async start() {
         //Load UI
@@ -32,19 +30,13 @@ class Game {
     }
 
     //Maps
-
     createMap(type) { return this.ws.request("maps", "create", { type: type }); }
-
     getMaps() { return this.ws.request("maps", "get"); }
 
     //Characters
-
     createCharacter(name) { return this.ws.request("characters", "create", { name: name }); }
-
     getCharacters() { return this.ws.request("characters", "get"); }
-
     editCharacter(data) { return this.ws.request("characters", "edit", { id: data.id, name: data.name, value: data.value }); }
-
     deleteCharacter(id) { return this.ws.request("characters", "delete", { id: id }); }
 
     //Settings
@@ -69,7 +61,6 @@ class Game {
 
         const settings = await this.ws.request("settings", "get");
         settings.interval = await this.getClientInterval();
-        console.log();
         const characters = await this.ws.request("characters", "get");
         const data = await this.ws.request("map", "join", { mapId: mapId });
         console.log("mapstate", data);
