@@ -58,45 +58,47 @@ class Simulator {
             object.userData.physics.mass === undefined) { return; }
 
         const physics = object.userData.physics;
-        if (physics.currentForce === undefined) { physics.currentForce = new THREE.Vector3(); }
+        physics.currentForce = new THREE.Vector3();
         if (physics.currentAcceleration === undefined) { physics.currentAcceleration = new THREE.Vector3(); }
         if (physics.currentSpeed === undefined) { physics.currentSpeed = new THREE.Vector3(); }
+        if (physics.prevIntersects === undefined) { physics.prevIntersects = []; }
 
         if (object.userData.playerId) {
             const settings = object.userData.controls.settings;
             const actions = object.userData.controls.actions;
             const moveForce =
-                actions.controls_sprint.pressed === true ? settings.sprintSpeed : settings.speed;
+                actions.controls_sprint.pressed === true ? settings.moveForce * settings.sprintMult : settings.moveForce;
 
+            const worldDirection = object.getWorldDirection(new THREE.Vector3())
+            let forceDirection = new THREE.Vector3();
             function moveDegRad(degRad) {
-                physics.currentForce.add(object.getWorldDirection(new THREE.Vector3())
-                    .applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad)
-                    .multiply(new THREE.Vector3(moveForce, 1, moveForce)))
+                forceDirection.add(worldDirection.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad));
             }
+            let move = false;
+            if (actions.controls_forward.pressed === true) { moveDegRad(0); move = true; }
+            if (actions.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); move = true; }
+            if (actions.controls_backward.pressed === true) { moveDegRad(Math.PI); move = true; }
+            if (actions.controls_left.pressed === true) { moveDegRad(Math.PI / 2); move = true; }
+            if (actions.controls_jump.pressed === true) { forceDirection.add(new THREE.Vector3(0, moveForce, 0)); move = true; }
 
-            if (actions.controls_forward.pressed === true) { moveDegRad(0); }
-            if (actions.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); }
-            if (actions.controls_backward.pressed === true) { moveDegRad(Math.PI); }
-            if (actions.controls_left.pressed === true) { moveDegRad(Math.PI / 2); }
-            if (actions.controls_jump.pressed === true) { physics.currentForce.add(new THREE.Vector3(0, moveForce, 0)) }
+            if (move === true) { physics.currentForce.add(forceDirection.normalize().multiplyScalar(moveForce)); }
 
-            // //gravity vertical
-            // const raycaster = new THREE.Raycaster();
-            // raycaster.far = 1;//needs to be slightly higher than half of the height of player
-            // raycaster.set(object.position, new THREE.Vector3(0, -1, 0));
-            // const intersects = raycaster.intersectObjects(map.objects);
-            // if (intersects.length == 0) {
-            //     physics.currentSpeed -= 0.02;
-            //     object.position.y += physics.currentSpeed;
-            // } else {
-            //     physics.currentSpeed = 0;
-            //     object.position.y = intersects[0].point.y + 1;
-            // }
-            // if (physics.currentSpeed !== 0) {
-            //     moved = true;
-            // }
+            let objectBoundingBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+            objectBoundingBox.setFromObject(object);
 
-            // air resistance
+            let intersects = [];
+            map.objects.forEach(iterateObject => {
+                if (iterateObject.userData.physics !== undefined) {
+                    let iterateObjecttBoundingBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+                    iterateObjecttBoundingBox.setFromObject(iterateObject);
+                    if (objectBoundingBox.intersectsBox(iterateObjecttBoundingBox)) { intersects.push(iterateObject.uuid); }
+                }
+            })
+
+            if (physics.prevIntersects.length < intersects.length) {
+                physics.currentSpeed.negate();
+            }
+            physics.prevIntersects = intersects;
         }
 
         // //gravity
@@ -112,35 +114,22 @@ class Simulator {
         //     }
         // })
 
-        // //get colission and stop movement
+        //get colission and stop movement
         // const raycaster = new THREE.Raycaster();
-        // raycaster.far = 0.5;
-        // raycaster.set(
-        //     object.position.clone().add(
-        //         physics.currentForce.clone().normalize().multiplyScalar(0.5))
-        //     , physics.currentForce.clone().normalize());
+        // raycaster.far = 1;
+        // raycaster.set(object.position.clone(), physics.currentSpeed.clone().normalize());
         // const intersects = raycaster.intersectObjects(map.objects);
         // if (intersects.length !== 0) {
         //     intersects.forEach(intersect => console.log(intersect.object.name));
-        //     physics.currentForce = new THREE.Vector3();
-        //     physics.currentAcceleration = new THREE.Vector3();
-        //     physics.currentSpeed = new THREE.Vector3();
+        //     physics.currentForce.add(physics.currentSpeed.clone().normalize().negate().multiplyScalar(5));
         // }
 
-        //apply force to acceleration, speed and position
-
-        function roundVector(vec) {
-            return new THREE.Vector3(
-                Math.round(vec.x * 10000) / 10000,
-                Math.round(vec.y * 10000) / 10000,
-                Math.round(vec.z * 10000) / 10000)
-        }
-
-        let currentSpeedSquared = physics.currentSpeed.length() * physics.currentSpeed.length()
-        // console.log(currentSpeedSquared);
-        let airResistanceForce = physics.currentForce.clone()
-            .negate().normalize().multiplyScalar(currentSpeedSquared)
-        physics.currentForce.add(airResistanceForce);
+        // //apply force to acceleration, speed and position
+        // let currentSpeedSquared = physics.currentSpeed.length() * physics.currentSpeed.length()
+        // // console.log(currentSpeedSquared);
+        // let airResistanceForce = physics.currentForce.clone()
+        //     .negate().normalize().multiplyScalar(currentSpeedSquared)
+        // physics.currentForce.add(airResistanceForce);
 
         //a=F/m
         physics.currentAcceleration = physics.currentForce.divideScalar(physics.mass);
@@ -149,25 +138,26 @@ class Simulator {
         physics.currentSpeed.add(physics.currentAcceleration);
 
         // //air resistance
-        if (physics.currentSpeed.length() < 0.001) { physics.currentSpeed.multiplyScalar(0); }
-        else if (physics.currentSpeed.length() < 0.3) { physics.currentSpeed.multiplyScalar(0.9); }
+        // if (physics.currentSpeed.length() < 0.001) { physics.currentSpeed.multiplyScalar(0); }
+        // else if (physics.currentSpeed.length() < 0.3) { physics.currentSpeed.multiplyScalar(0.9); }
 
-        if (isNaN(physics.currentForce.length()) || isNaN(physics.currentAcceleration.length()) || isNaN(physics.currentSpeed.length())) {
-            physics.currentForce = new THREE.Vector3();
-            physics.currentAcceleration = new THREE.Vector3();
-            physics.currentSpeed = new THREE.Vector3();
-        } else {
-            //s=v*t
-            object.position.add(physics.currentSpeed);
-        }
+        // if (isNaN(physics.currentForce.length()) || isNaN(physics.currentAcceleration.length()) || isNaN(physics.currentSpeed.length())) {
+        //     physics.currentForce = new THREE.Vector3();
+        //     physics.currentAcceleration = new THREE.Vector3();
+        //     physics.currentSpeed = new THREE.Vector3();
+        // } else {
+        //     //s=v*t
+        //     object.position.add(physics.currentSpeed);
+        // }
+
+        //s=v*t
+        object.position.add(physics.currentSpeed);
 
         object.updateMatrixWorld(true);
 
         //only submit change if moving
         if (physics.currentSpeed.length() !== 0) {
-            this.submitChange(map, object.uuid, {
-                position: this.vectorToXYZ(object.position)
-            });
+            this.submitChange(map, object.uuid, { position: this.vectorToXYZ(object.position) });
         }
     }
 
@@ -210,8 +200,8 @@ class Simulator {
             playerId: playerId,
             controls: {
                 settings: {
-                    speed: 0.4,
-                    sprintSpeed: 1,
+                    moveForce: 0.4,
+                    sprintMult: 2,
                 },
                 actions: {
                     controls_forward: { pressed: false },
@@ -228,8 +218,10 @@ class Simulator {
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: false })
         );
-
         pitch.rotation.x = 0;
+        pitch.receiveShadow = true;
+        pitch.castShadow = true;
+
         yaw.add(pitch);
         yaw.updateMatrixWorld(true);
         const playerObj = this.addAsSeparatedObjectToMap(map, yaw);
@@ -333,7 +325,7 @@ class Simulator {
             if (visuals.images) { objectJSON.images = structuredClone(visuals.images); }
             if (visuals.textures) { objectJSON.textures = structuredClone(visuals.textures); }
             if (visuals.object_material) { objectJSON.object.material = structuredClone(visuals.object_material); }
-            
+
         }
 
         if (visuals.children) {
@@ -348,105 +340,30 @@ class Simulator {
         return { x: vector.x, y: vector.y, z: vector.z, };
     }
 
-    // changePlayer() {
-    //     //active abilities of player and other players need to be checked first
-
-    //     //checks if player is moving to fast
-    //     // const distance =
-    //     //     new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z).distanceTo(
-    //     //         new THREE.Vector3(player.posRot.position.x, player.posRot.position.y, player.posRot.position.z));
-    //     // if (distance > 0.6) { this.addOffence(player, "pmtf"); }
-
-    //     // //check if player gravity is active
-    //     // //needs check if player is jumping or not
-    //     // if (posRot.position.y > 0.5 /*player height*/ && distance < 0.6) {
-    //     //     this.addOffence(player, "pgna");
-    //     // }
-
-    //     // //check if player is outside map bounds (only needs to be checked every second)
-    //     // if (posRot.position.x < -250 || posRot.position.x > 250 ||
-    //     //     posRot.position.y < -250 || posRot.position.y > 250 ||
-    //     //     posRot.position.z < -250 || posRot.position.z > 250
-    //     // ) { this.addOffence(player, "pomb"); }
-
-    //     // simplified Gravity
-    //     // if (Math.abs(posRot.position.x) > 125 || Math.abs(posRot.position.z) > 125) {
-    //     //     posRot.position.y -= this.settings.gravity;
-    //     // }
-    //     // else if (posRot.position.y < 1) {
-    //     //     posRot.position.y = 1;
-    //     // }
-    //     // else if (posRot.position.y > 1) {
-    //     //     posRot.position.y -= this.settings.gravity;
-    //     // }
-
-
-    //     //check if players inside other prohibited Mesh (example: bullt floor etc.)
-    //     //could also do the hit detection
-    //     /*
-    //     getProhibitedMeshesOfMap(mapId).forEach(mesh => {
-    //         const point = new THREE.Vector3(posRot.position.x, posRot.position.y, posRot.position.z) // Your point
-    //         const geometry = new THREE.BoxBufferGeometry(mesh.x, mesh.y, mesh.z)
-    //         const mesh = new THREE.Mesh(geometry)
-    //         const raycaster = new THREE.Raycaster()
-    //         raycaster.set(point, new THREE.Vector3(1, 1, 1))
-    //         if (raycaster.intersectObject(mesh).length % 2 === 1) { // Point is in objet
-    //             this.addOffence(player, "pim");
-    //         }
-    //     })
-    //     */
-
-    //     // this.maps[mapId].players[playerId].changeCount++;
-    //     // this.maps[mapId].players[playerId].posRot = player.posRot;
-
-    //     //console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", JSON.stringify(this.maps[mapId].players[playerId], null, 1));
-    // }
-
-    // offences = {
-    //     "tmcps": "too many changes per second",
-    //     "pmtf": "player movement to fast",
-    //     "pgna": "player gravity not active",
-    //     "pomb": "player outside map bounds",
-    //     "pim": "player inside Mesh"
-    // }
-
-    // addOffence(player, OId) {
-    //     player.offences[OId] = player.offences[OId] > 0 ? ++player.offences[OId] : 1;
-    //     console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "ADDED OFFENCE", player, OId);
-    // }
-
-    //checks if players are running higher fps in game
-    // startChageCountValidation() {
-
-    //     //set changecount of all palyers 0
-    //     this.getPlayers((mapId, playerId) => {
-    //         this.maps[mapId].players[playerId].changeCount = 0;
-    //     })
-
-    //     this.changeCountInterv = setInterval(() => {
-    //         this.getPlayers((mapId, playerId) => {
-    //             if (this.maps[mapId].players[playerId].changeCount > 60) {
-    //                 this.addOffence(this.maps[mapId].players[playerId], "tmcps");
-    //             }
-    //             this.maps[mapId].players[playerId].changeCount = 0;
-    //         })
-    //     }, 1000);
-    // }
-
-    // stopChageCountValidation() {
-    //     clearInterval(this.changeCountInterv);
-    // }
-
-    // removeOffenders() {
-    //     let res = [];
-    //     this.getPlayers((mapId, playerId) => {
-    //         const suspect = this.maps[mapId].players[playerId];
-    //         if (Object.keys(suspect.offences).length > 0) {
-    //             res.push({ id: playerId, offences: suspect.offences });
-    //             delete this.maps[mapId].players[playerId];
-    //         }
-    //     })
-    //     return res;
-    // }
+    roundVector(vector) {
+        s
+        return new THREE.Vector3(
+            Math.round(vector.x * 10000) / 10000,
+            Math.round(vector.y * 10000) / 10000,
+            Math.round(vector.z * 10000) / 10000)
+    }
 }
 module.exports = Simulator;
+
+// //gravity vertical
+// const raycaster = new THREE.Raycaster();
+// raycaster.far = 1;//needs to be slightly higher than half of the height of player
+// raycaster.set(object.position, new THREE.Vector3(0, -1, 0));
+// const intersects = raycaster.intersectObjects(map.objects);
+// if (intersects.length == 0) {
+//     physics.currentSpeed -= 0.02;
+//     object.position.y += physics.currentSpeed;
+// } else {
+//     physics.currentSpeed = 0;
+//     object.position.y = intersects[0].point.y + 1;
+// }
+// if (physics.currentSpeed !== 0) {
+//     moved = true;
+// }
+
+// air resistance

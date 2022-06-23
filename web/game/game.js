@@ -14,8 +14,8 @@ class Game {
 
         //Login (Websocket is started and added to Game after submit)
         await this.loader.load("ui/login/login", 1);
-        await new Login(this).login();
-        //await new Login(this).autoLogin("test", "test", "login");
+        // await new Login(this).login();
+        await new Login(this).autoLogin("test", "test", "login");
         await this.loader.unload("ui/login/login");
 
         //add cid
@@ -57,7 +57,7 @@ class Game {
         await this.loader.load("engine/controls");
         await this.loader.load("engine/player/player");
         //await this.loader.load("maps/mountainwaters/water");//needs to be according to mapid
-        await this.loader.load("maps/mountainwaters/map");
+        //await this.loader.load("maps/mountainwaters/map");
 
         const settings = await this.ws.request("settings", "get");
         settings.interval = await this.getClientInterval();
