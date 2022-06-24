@@ -1,12 +1,17 @@
 const THREE = require("./three.js");
+const Physics = require("./physics.js");
+const Player = require("./player.js");
+const Controller = require("./controller.js");
+
 class Simulator {
 
     constructor() {
         this.maps = {};
+        this.controller = new Controller(THREE);
+        this.physics = new Physics(THREE);
     }
 
     addMap(mapJSON) {
-
         //create map object
         this.maps[mapJSON.id] = {
             type: mapJSON.type,
@@ -29,7 +34,7 @@ class Simulator {
     startMap(mapId, callback) {
         const map = this.maps[mapId];
         map.loop = setInterval(() => {
-            map.objects.forEach(object => this.moveObject(map, object));
+            map.objects.forEach(object => this.updateObject(map, object));
             if (Object.keys(map.change).length !== 0) {
                 callback(Object.keys(map.players), map.change);
                 map.change = {};
@@ -44,6 +49,26 @@ class Simulator {
         return { id: mapId, objects: this.maps[mapId].objects };
     }
 
+    updateObject(map, object) {
+        if (this.physics.isPhysicsObject(object)) {
+
+            this.physics.prepareObject(object);
+
+            if (object.userData.playerId) {
+                this.controller.applyForceFromActions(object);
+            }
+
+            this.physics.collision(object, map.objects);
+            this.physics.spacialGravity(object, map.objects);
+            this.physics.airResistance(object);
+            this.physics.updatePosition(object);
+
+            this.physics.getChanges(object).forEach(change => {
+                this.submitChange(map, object.uuid, change);
+            });
+        }
+    }
+
     submitChange(map, uuid, change) {
         if (map.change[uuid] !== undefined) {
             Object.entries(change).forEach(([key, values]) => {
@@ -52,180 +77,18 @@ class Simulator {
         } else { map.change[uuid] = change; }
     }
 
-    moveObject(map, object) {
-        if (object.userData === undefined ||
-            object.userData.physics === undefined ||
-            object.userData.physics.mass === undefined) { return; }
-
-        const physics = object.userData.physics;
-        physics.currentForce = new THREE.Vector3();
-        if (physics.currentAcceleration === undefined) { physics.currentAcceleration = new THREE.Vector3(); }
-        if (physics.currentSpeed === undefined) { physics.currentSpeed = new THREE.Vector3(); }
-        if (physics.prevIntersects === undefined) { physics.prevIntersects = []; }
-
-        if (object.userData.playerId) {
-            const settings = object.userData.controls.settings;
-            const actions = object.userData.controls.actions;
-            const moveForce =
-                actions.controls_sprint.pressed === true ? settings.moveForce * settings.sprintMult : settings.moveForce;
-
-            const worldDirection = object.getWorldDirection(new THREE.Vector3())
-            let forceDirection = new THREE.Vector3();
-            function moveDegRad(degRad) {
-                forceDirection.add(worldDirection.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), degRad));
-            }
-            let move = false;
-            if (actions.controls_forward.pressed === true) { moveDegRad(0); move = true; }
-            if (actions.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); move = true; }
-            if (actions.controls_backward.pressed === true) { moveDegRad(Math.PI); move = true; }
-            if (actions.controls_left.pressed === true) { moveDegRad(Math.PI / 2); move = true; }
-            if (actions.controls_jump.pressed === true) { forceDirection.add(new THREE.Vector3(0, moveForce, 0)); move = true; }
-
-            if (move === true) { physics.currentForce.add(forceDirection.normalize().multiplyScalar(moveForce)); }
-
-            let objectBoundingBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
-            objectBoundingBox.setFromObject(object);
-
-            let intersects = [];
-            map.objects.forEach(iterateObject => {
-                if (iterateObject.userData.physics !== undefined) {
-                    let iterateObjecttBoundingBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
-                    iterateObjecttBoundingBox.setFromObject(iterateObject);
-                    if (objectBoundingBox.intersectsBox(iterateObjecttBoundingBox)) { intersects.push(iterateObject.uuid); }
-                }
-            })
-
-            if (physics.prevIntersects.length < intersects.length) {
-                physics.currentSpeed.negate();
-            }
-            physics.prevIntersects = intersects;
-        }
-
-        // //gravity
-        // map.objects.forEach(attractor => {
-        //     if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-        //         attractor.userData.physics.mass) {
-        //         //revesing these will attract or oppse
-        //         const directionVector = new THREE.Vector3().subVectors(attractor.position, object.position);
-        //         const distance = directionVector.length();
-        //         const forceMagnitude =
-        //             ((physics.mass * attractor.userData.physics.mass) / (distance * distance)) * 0.1;
-        //         physics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-        //     }
-        // })
-
-        //get colission and stop movement
-        // const raycaster = new THREE.Raycaster();
-        // raycaster.far = 1;
-        // raycaster.set(object.position.clone(), physics.currentSpeed.clone().normalize());
-        // const intersects = raycaster.intersectObjects(map.objects);
-        // if (intersects.length !== 0) {
-        //     intersects.forEach(intersect => console.log(intersect.object.name));
-        //     physics.currentForce.add(physics.currentSpeed.clone().normalize().negate().multiplyScalar(5));
-        // }
-
-        // //apply force to acceleration, speed and position
-        // let currentSpeedSquared = physics.currentSpeed.length() * physics.currentSpeed.length()
-        // // console.log(currentSpeedSquared);
-        // let airResistanceForce = physics.currentForce.clone()
-        //     .negate().normalize().multiplyScalar(currentSpeedSquared)
-        // physics.currentForce.add(airResistanceForce);
-
-        //a=F/m
-        physics.currentAcceleration = physics.currentForce.divideScalar(physics.mass);
-
-        //v=a*t
-        physics.currentSpeed.add(physics.currentAcceleration);
-
-        // //air resistance
-        // if (physics.currentSpeed.length() < 0.001) { physics.currentSpeed.multiplyScalar(0); }
-        // else if (physics.currentSpeed.length() < 0.3) { physics.currentSpeed.multiplyScalar(0.9); }
-
-        // if (isNaN(physics.currentForce.length()) || isNaN(physics.currentAcceleration.length()) || isNaN(physics.currentSpeed.length())) {
-        //     physics.currentForce = new THREE.Vector3();
-        //     physics.currentAcceleration = new THREE.Vector3();
-        //     physics.currentSpeed = new THREE.Vector3();
-        // } else {
-        //     //s=v*t
-        //     object.position.add(physics.currentSpeed);
-        // }
-
-        //s=v*t
-        object.position.add(physics.currentSpeed);
-
-        object.updateMatrixWorld(true);
-
-        //only submit change if moving
-        if (physics.currentSpeed.length() !== 0) {
-            this.submitChange(map, object.uuid, { position: this.vectorToXYZ(object.position) });
-        }
-    }
-
     controlPlayer(playerId, change) {
         const mapId = this.getMapIdOfPlayer(playerId);
         const object = this.maps[mapId].players[playerId];
 
-        if (change.rotation) {
-            object.rotation.y = change.rotation.yaw;
-            object.children[0].rotation.x = change.rotation.pitch;
-            this.submitChange(this.maps[mapId], object.uuid, {
-                rotation: this.vectorToXYZ(object.rotation)
-            });
-            this.submitChange(this.maps[mapId], object.children[0].uuid, {
-                rotation: this.vectorToXYZ(object.children[0].rotation)
-            });
-        }
-
-        if (object.userData.controls.actions[change.action]) {
-            object.userData.controls.actions[change.action].pressed = change.pressed;
-        }
+        this.controller.updateRotation(this.maps[mapId], object, change, this.submitChange);
+        this.controller.updateActions(object, change);
     }
 
     addPlayerToMap(playerId, mapId) {
         const map = this.maps[mapId];
-        const yaw = new THREE.Mesh();
-        yaw.name = "player";
-        yaw.position.set(
-            Math.round(Math.random() * 199) - 99,
-            1,
-            Math.round(Math.random() * 199) - 99);
-        //yaw.rotation.y = Math.random() * 360;
-        yaw.userData = {
-            physics: {
-                currentForce: new THREE.Vector3(0, 0, 0),
-                currentAcceleration: new THREE.Vector3(0, 0, 0),
-                currentSpeed: new THREE.Vector3(0, 0, 0),
-                mass: 10
-            },
-            playerId: playerId,
-            controls: {
-                settings: {
-                    moveForce: 0.4,
-                    sprintMult: 2,
-                },
-                actions: {
-                    controls_forward: { pressed: false },
-                    controls_right: { pressed: false },
-                    controls_backward: { pressed: false },
-                    controls_left: { pressed: false },
-                    controls_jump: { pressed: false },
-                    controls_sprint: { pressed: false },
-                }
-            },
-        };//other stuff should go in here
-
-        const pitch = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 1, 1),
-            new THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: false })
-        );
-        pitch.rotation.x = 0;
-        pitch.receiveShadow = true;
-        pitch.castShadow = true;
-
-        yaw.add(pitch);
-        yaw.updateMatrixWorld(true);
-        const playerObj = this.addAsSeparatedObjectToMap(map, yaw);
-        playerObj.updateMatrixWorld(true);
+        const player = new Player(playerId, THREE);
+        const playerObj = this.addAsSeparatedObjectToMap(map, player.objects.yaw);
         map.players[playerId] = playerObj;
 
         return {
@@ -335,35 +198,5 @@ class Simulator {
         }
         return objectJSON;
     }
-
-    vectorToXYZ(vector) {
-        return { x: vector.x, y: vector.y, z: vector.z, };
-    }
-
-    roundVector(vector) {
-        s
-        return new THREE.Vector3(
-            Math.round(vector.x * 10000) / 10000,
-            Math.round(vector.y * 10000) / 10000,
-            Math.round(vector.z * 10000) / 10000)
-    }
 }
 module.exports = Simulator;
-
-// //gravity vertical
-// const raycaster = new THREE.Raycaster();
-// raycaster.far = 1;//needs to be slightly higher than half of the height of player
-// raycaster.set(object.position, new THREE.Vector3(0, -1, 0));
-// const intersects = raycaster.intersectObjects(map.objects);
-// if (intersects.length == 0) {
-//     physics.currentSpeed -= 0.02;
-//     object.position.y += physics.currentSpeed;
-// } else {
-//     physics.currentSpeed = 0;
-//     object.position.y = intersects[0].point.y + 1;
-// }
-// if (physics.currentSpeed !== 0) {
-//     moved = true;
-// }
-
-// air resistance
