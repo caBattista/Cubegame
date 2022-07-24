@@ -1,8 +1,9 @@
+import pg from "pg"
+
 class Database {
     constructor(config) {
         this.config = config;
-        const { Client } = require('pg');
-        this.pgClient = new Client(this.config);
+        this.pgClient = new pg.Client(this.config);
     }
 
     async init() {
@@ -236,4 +237,4 @@ class Database {
     }
 }
 
-module.exports = Database;
+export default Database;

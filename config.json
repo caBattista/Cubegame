@@ -18,18 +18,22 @@
     },
     "webserver": {
         "port": "1337",
+        "index" : "/index.html",
         "root_dir": "./web/",
         "public_files": [
-            "/main/index.html",
-            "/main/favicon.png",
+            "/index.html",
+            "/favicon.png",
+            "/game.js",
             "/util/loader.js",
-            "/game/game.js",
             "/util/ws.js",
             "/ui/ui.js",
             "/ui/ui.css",
             "/ui/login/login.js",
             "/ui/login/login.css"
         ]
+    },
+    "webSocketServer": {
+        "compression": "deflate"
     },
     "user_default": {
         "sound_global_volume": 100,

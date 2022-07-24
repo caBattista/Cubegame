@@ -1,14 +1,15 @@
-class Characters extends Mainmenu {
+import { createHTML, createToolTip } from "../../ui.js"
+
+class Characters {
 
     constructor(game, parent) {
-        super();
         this.game = game;
         this.createPage(parent);
     }
 
     async createPage(parent) {
         parent.innerHTML = "";
-        const elements = this.createHTML(`
+        const elements = createHTML(`
             <div class="header">
                 <h1>Select a Character</h1>
                 <input type="submit" value="Add Character">
@@ -16,7 +17,7 @@ class Characters extends Mainmenu {
             <div class="list"></div>`, parent, "all");
 
         elements[0].children[1].addEventListener("click", async ev => {
-            const els = this.createToolTip(`
+            const els = createToolTip(`
                 <h1>Name</h1>
                 <input type="text" value="John">
                 <input type="submit" value="Add">
@@ -30,12 +31,12 @@ class Characters extends Mainmenu {
 
         const res = await this.game.getCharacters();
         res.forEach(character => {
-            const el = this.createHTML(`<div>
+            const el = createHTML(`<div>
                 <div title="${character.id}">${character.name}</div>
                 <input type="submit" value="Edit">
                 </div>`, elements[1]);
             el.children[1].addEventListener("click", async ev => {
-                const els = this.createToolTip(`
+                const els = createToolTip(`
                     <h1>Name</h1>
                     <input type="text" value="${character.name}">
                     <input type="submit" value="Save">
@@ -59,3 +60,5 @@ class Characters extends Mainmenu {
         });
     }
 }
+
+export default Characters

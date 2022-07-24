@@ -3,50 +3,28 @@ class Loader {
         this.loadedFiles = {}
     }
 
-    // load(pathWOE, withStyle) {
-    //     return new Promise((resolve, reject) => {
-    //         if (this.checkAlreadyLoaded(pathWOE) === true) { resolve(0); return; }
-    //         fetch(pathWOE + '.js', this.fetchArgs).then(async (response) => {
-    //             var script = document.createElement("script");
-    //             script.innerHTML = await response.text();
-    //             script.type = 'text/javascript';
-    //             script.async = false;
-    //             document.head.appendChild(script);
-    //             this.loadedFiles[pathWOE + '.js'] = { pathWOE: pathWOE, ext: 'js', htmlEl: script };
-    //             if (withStyle === 1) {
-    //                 fetch(pathWOE + '.css', this.fetchArgs).then(async (response) => {
-    //                     var style = document.createElement("style");
-    //                     style.innerHTML = await response.text();
-    //                     style.async = false;
-    //                     document.head.appendChild(style);
-    //                     this.loadedFiles[pathWOE + '.css'] = { pathWOE: pathWOE, ext: 'js', htmlEl: style };
-    //                     resolve(0);
-    //                 })
-    //             } else { resolve(0); }
-    //         })
-    //     });
-    // }
-
     async load(pathWOE, option = 0) {
-        return new Promise((resolve, reject) => {
-            if (this.checkAlreadyLoaded(pathWOE) === true) { resolve(0); }
+        return new Promise(async (resolve, reject) => {
+            if (this.checkAlreadyLoaded(pathWOE) === true) {
+                if (this.loadedFiles[pathWOE + '.js'].module) {
+                    resolve(this.loadedFiles[pathWOE + '.js'].module);
+                }
+            }
             else {
-                if (option === 0 || option === 1) {
-                    let htmlEl = document.createElement("script");
-                    htmlEl.src = pathWOE + '.js' + (this.client_id ? `?client_id=${this.client_id}` : '');
-                    htmlEl.addEventListener("load", () => {
-                        this.loadedFiles[pathWOE + '.js'] = { pathWOE: pathWOE, ext: 'js', htmlEl: htmlEl };
-                        if (option === 0 || this.loadedFiles[pathWOE + '.css']) { resolve(0); }
-                    });
-                    document.head.appendChild(htmlEl);
+                if (option === 0) {
+                    const { default: def } = await import(pathWOE + '.js');
+                    this.loadedFiles[pathWOE + '.js'] = { pathWOE: pathWOE, ext: 'js', module: def };
+                    resolve(def);
                 }
                 if (option === 1) {
+                    const { default: def } = await import(pathWOE + '.js');
+                    this.loadedFiles[pathWOE + '.js'] = { pathWOE: pathWOE, ext: 'js', module: def };
                     let htmlEl = document.createElement("link");
                     htmlEl.href = pathWOE + '.css' + (this.client_id ? `?client_id=${this.client_id}` : '');
                     htmlEl.rel = "stylesheet";
                     htmlEl.addEventListener("load", () => {
                         this.loadedFiles[pathWOE + '.css'] = { pathWOE: pathWOE, ext: 'js', htmlEl: htmlEl };
-                        if (this.loadedFiles[pathWOE + '.js']) { resolve(0); }
+                        resolve(def);
                     });
                     document.head.appendChild(htmlEl);
                 }
@@ -72,8 +50,6 @@ class Loader {
             }
         });
     }
-
-    addClientId(client_id) {
-        this.client_id = client_id;
-    };
 }
+
+export default Loader

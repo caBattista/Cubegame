@@ -1,7 +1,8 @@
-class Maps extends Mainmenu {
+import { createHTML, createToolTip, keyToHR } from "../../ui.js"
+
+class Maps {
 
     constructor(game, parent) {
-        super();
         this.game = game;
         this.parent = parent;
         this.createPage();
@@ -9,7 +10,7 @@ class Maps extends Mainmenu {
 
     async createPage() {
         this.parent.innerHTML = "";
-        const elements = this.createHTML(`
+        const elements = createHTML(`
             <div class="header">
                 <h1>Select a Map</h1>
                 <input type="submit" value="Add Map">
@@ -17,7 +18,7 @@ class Maps extends Mainmenu {
             <div class="list"></div>`, this.parent, "all");
 
         elements[0].children[1].addEventListener("click", async ev => {
-            const els = this.createToolTip(`
+            const els = createToolTip(`
                 <h1>Name</h1>
                 <select name="map_name">
                     <option value="mountainwaters" selected>Mountainwaters</option>
@@ -33,8 +34,8 @@ class Maps extends Mainmenu {
         });
         const res = await this.game.getMaps();
         res.forEach(map => {
-            const el = this.createHTML(`<div>
-                <div title="${map.id}">${this.keyToHR(map.type)}</div>
+            const el = createHTML(`<div>
+                <div title="${map.id}">${keyToHR(map.type)}</div>
                 <div>${map.players.length}/${map.max_players}</div>
                 <input type="submit" value="Join">
                 </div>`, elements[1]);
@@ -44,3 +45,5 @@ class Maps extends Mainmenu {
         });
     }
 }
+
+export default Maps

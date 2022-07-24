@@ -1,14 +1,14 @@
 class Controls {
 
-    constructor(settings, domElement, ws, player) {
+    constructor(settings, canvas, ws, initialRotation) {
         this.ws = ws;
-        this.player = player;
-
         // ################ Mouse (Camera movement) ################
 
         //set start rotation
-        this.rotation = { yaw: this.player.rotation.y, pitch: this.player.children[0].rotation.x };
-        this.rotationPrev = { yaw: this.player.rotation.y, pitch: this.player.children[0].rotation.x };
+        this.rotation = { yaw: initialRotation.yaw, pitch: initialRotation.pitch };
+        this.rotationPrev = { yaw: this.rotation.yaw, pitch: this.rotation.pitch };
+        // this.rotation = { yaw: this.playerData.rotation.y, pitch: this.playerData.children[0].rotation.x };
+        // this.rotationPrev = { yaw: this.playerData.rotation.y, pitch: this.playerData.children[0].rotation.x };
 
         //loop to throttle mouse move events sent to Server
         this.controlInterval = setInterval(() => {
@@ -18,7 +18,7 @@ class Controls {
                 this.rotationPrev = JSON.parse(JSON.stringify(this.rotation));
             }
         }, 1000 / 30);
-        
+
         const mouseMoveHandler = ev => {
             this.rotation.yaw = this.rotation.yaw - ev.movementX * 0.002;
             this.rotation.pitch = this.rotation.pitch + ev.movementY * 0.002;
@@ -27,16 +27,16 @@ class Controls {
         const lockChange = (ev) => {
             if (this.pointerLocked === true) {
                 this.pointerLocked = false;
-                domElement.removeEventListener("mousemove", mouseMoveHandler);
+                canvas.removeEventListener("mousemove", mouseMoveHandler);
                 document.removeEventListener('pointerlockchange', lockChange, false);
             }
         }
 
-        domElement.addEventListener("mousedown", () => {
+        canvas.addEventListener("mousedown", () => {
             if (this.pointerLocked === true) { return; }
             this.pointerLocked = true;
-            domElement.requestPointerLock();
-            domElement.addEventListener("mousemove", mouseMoveHandler, false);
+            canvas.requestPointerLock();
+            canvas.addEventListener("mousemove", mouseMoveHandler, false);
             setTimeout(() => { document.addEventListener('pointerlockchange', lockChange, false); }, 0);
         });
 
@@ -62,4 +62,8 @@ class Controls {
             if (keyAction !== undefined) { this.ws.request("map", "playerControl", { action: keyAction, pressed: false }); }
         });
     }
+
+    updatePlayerData(playerData) { this.playerData = playerData; }
 }
+
+export default Controls

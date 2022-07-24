@@ -1,15 +1,20 @@
+import express from 'express'
+import cookieParser from 'cookie-parser'
+import dns from 'dns'
+import os from 'os'
+
 class Webserver {
     constructor(config) {
         this.config = config;
         this.config.port = process.env.PORT || this.config.port;
-        this.express = require('express');
-        this.app = this.express();
+        this.app = express();
+        this.app.use(cookieParser())
     }
 
     async init() {
         return new Promise((res, rej) => {
             this.server = this.app.listen(this.config.port, () => {
-                require('dns').lookup(require('os').hostname(), (err, add, fam) => {
+                dns.lookup(os.hostname(), (err, add, fam) => {
                     console.log("\x1b[31m%s\x1b[0m", "WEBSERVER:", 'STARTED ' + add + ':' + this.config.port);
                     res(true);
                 });
@@ -20,27 +25,29 @@ class Webserver {
     hostFiles(deps) {
         this.deps = deps;
         this.app.use('/', async (req, res) => {
+            let clientId = req.cookies.clientId;
 
             let path = req.originalUrl.split('?')[0];
-            path = path === '/' ? '/main/index.html' : path;
+            path = path === '/' ? this.config.index : path;
 
-            console.log("\x1b[31m%s\x1b[0m", "WEBSERVER:", req.query.client_id, "REQUESTED", path);
+            console.log("\x1b[31m%s\x1b[0m", "WEBSERVER:", clientId, "REQUESTED", path);
 
             //check if requested file is public then send
             if (this.config.public_files.includes(path)) {
+                console.log("public");
                 res.sendFile(path, { root: this.config.root_dir });
             }
-            //if client_id is given
-            else if (req.query.client_id) {
+            //if clientId is given
+            else if (clientId) {
                 //Check message
-                const valRes = this.deps.joi.validate(req.query.client_id, this.deps.joi.string().alphanum().required());
+                const valRes = this.deps.joi.validate(clientId, this.deps.joi.string().alphanum().required());
                 if (valRes.error !== null) { res.status(403).send('Invalid Message'); return; }
 
                 //Check if WSServer knows Client
-                if (!this.deps.wss.clients[req.query.client_id]) { res.status(403).send('Sorry! You cant see that.'); return; }
+                if (!this.deps.wss.clients[clientId]) { res.status(403).send('Sorry! You cant see that.'); return; }
 
                 //Check if DB knows Client
-                const dbRes = await this.deps.db.getUser({ client_id: req.query.client_id });
+                const dbRes = await this.deps.db.getUser({ client_id: clientId });
                 if (dbRes.length !== 1) { res.status(403).send('Sorry! You cant see that.'); return; }
                 res.sendFile(path, { root: this.config.root_dir });
             }
@@ -50,4 +57,4 @@ class Webserver {
     }
 }
 
-module.exports = Webserver;
+export default Webserver;

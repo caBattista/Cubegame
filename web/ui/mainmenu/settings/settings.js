@@ -1,7 +1,8 @@
-class Settings extends Mainmenu {
+import { createHTML } from "../../ui.js"
+
+class Settings  {
 
     constructor(game, parent) {
-        super();
         this.game = game;
         this.parent = parent;
         this.createPage();
@@ -11,7 +12,7 @@ class Settings extends Mainmenu {
         const settings = await this.game.ws.request("settings", "get");
 
         //create form
-        const formEl = this.createHTML(`
+        const formEl = createHTML(`
         <form class="settings">
             <h1>Sound</h1>
             <div class="list">
@@ -81,3 +82,5 @@ class Settings extends Mainmenu {
         });
     }
 }
+
+export default Settings

@@ -1,14 +1,15 @@
+import { Mesh, BoxGeometry, MeshPhongMaterial } from 'three'
+
 class Player {
 
-    constructor(playerId, THREE) { 
+    constructor(playerId) { 
         this.playerId = playerId;
-        this.THREE = THREE;
         this.objects = {};
         this.createObject();
     }
 
     createObject(){
-        this.objects.yaw = new this.THREE.Mesh();
+        this.objects.yaw = new Mesh();
         this.objects.yaw.name = "player";
         this.objects.yaw.position.set(
             Math.round(Math.random() * 199) - 99,
@@ -17,16 +18,13 @@ class Player {
         //this.objects.yaw.rotation.y = Math.random() * 360;
         this.objects.yaw.userData = {
             physics: {
-                currentForce: new this.THREE.Vector3(0, 0, 0),
-                currentAcceleration: new this.THREE.Vector3(0, 0, 0),
-                currentSpeed: new this.THREE.Vector3(0, 0, 0),
                 mass: 10
             },
             playerId: this.playerId,
             controls: {
                 settings: {
                     moveForce: 0.4,
-                    sprintMult: 2,
+                    sprintMult: 10,
                 },
                 actions: {
                     controls_forward: { pressed: false },
@@ -41,18 +39,19 @@ class Player {
         this.objects.yaw.updateMatrixWorld(true);
 
 
-        this.objects.pitch = new this.THREE.Mesh(
-            new this.THREE.BoxGeometry(1, 1, 1),
-            new this.THREE.MeshPhongMaterial({ color: 0xff4444, wireframe: false })
+        this.objects.pitch = new Mesh(
+            new BoxGeometry(1, 1, 1),
+            new MeshPhongMaterial({ color: 0xff4444, wireframe: false })
         );
-        this.objects.pitch.rotation.x = 0;
+        //this.objects.pitch.rotation.x = 0.1;
         this.objects.pitch.receiveShadow = true;
         this.objects.pitch.castShadow = true;
         this.objects.pitch.updateMatrixWorld(true);
 
         this.objects.yaw.add(this.objects.pitch);
+        console.log(this.objects.yaw.rotation.y, this.objects.pitch.rotation.x);
     }
 
 }
 
-module.exports = Player;
+export default Player;

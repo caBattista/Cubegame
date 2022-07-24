@@ -1,10 +1,12 @@
-class Ingameui extends Ui {
+import { createHTML } from "../ui.js"
+
+class Ingameui{
     constructor(game) {
-        super();
         this.game = game;
         this.createMenu();
         this.createHud();
         this.createCanvas();
+        //this.handleCanvasResize();
     }
 
     show() {
@@ -16,7 +18,7 @@ class Ingameui extends Ui {
     }
 
     createProgressBar() {
-        this.progressBar = this.game.ui.createHTML(`
+        this.progressBar = createHTML(`
         <div class="progressBar">
             <div></div>
             <div></div>
@@ -34,11 +36,24 @@ class Ingameui extends Ui {
     }
 
     createCanvas() {
-        this.canvas = this.createHTML(`<canvas></canvas>`, document.body);
+        this.canvas = createHTML(`<canvas height="${window.innerHeight}" width="${window.innerWidth}"></canvas>`, document.body);
+    }
+
+    handleCanvasResize() {
+        let reisizeWait;
+        window.addEventListener('resize', ev => {
+            this.canvas.style.opacity = 0;
+            clearTimeout(reisizeWait);
+            reisizeWait = setTimeout(() => {
+                this.canvas.height = window.innerHeight;
+                this.canvas.width = window.innerWidth;
+                setTimeout(() => { this.canvas.style.opacity = 1; }, 250);
+            }, 100);
+        })
     }
 
     createMenu() {
-        this.ingamemenu = this.createHTML(`
+        this.ingamemenu = createHTML(`
             <div class="ingamemenu">
                 <input type="submit" value="Back To Main Menu">
                 ${this.game.loader.client_id}
@@ -50,7 +65,7 @@ class Ingameui extends Ui {
     }
 
     createHud() {
-        this.hud = this.createHTML(`
+        this.hud = createHTML(`
         <div class="hud">
             <div class="crosshair"></div>
             <div class="leaderBoard"><h4>Players</h4><table></table></div>
@@ -58,3 +73,5 @@ class Ingameui extends Ui {
         `, document.body);
     }
 }
+
+export default Ingameui

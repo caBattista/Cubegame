@@ -1,28 +1,37 @@
-const THREE = require("./three.js");
-const Physics = require("./physics.js");
-const Player = require("./player.js");
-const Controller = require("./controller.js");
+import { ObjectLoader } from 'three'
+import Physics from './physics.js'
+import Player from './player.js'
+import Controller from './controller.js'
+import Stats from './stats.js'
+import * as THREE from 'three'
 
 class Simulator {
 
+    //public
     constructor() {
         this.maps = {};
-        this.controller = new Controller(THREE);
-        this.physics = new Physics(THREE);
+        this.controller = new Controller();
+        this.stats = new Stats();
+        this.physics = new Physics(this.stats);
+        console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "STARTED");
     }
 
-    addMap(mapJSON) {
+    //public
+    addMapFromJSON(mapJSON) {
         //create map object
         this.maps[mapJSON.id] = {
             type: mapJSON.type,
             settings: mapJSON.settings,
             objects: [],
+            physicsObjects: [],
             visuals: {},
             players: {},
-            change: {}
+            changes: {},
+            objectRelations: {}
         };
 
         //load objects from JSON
+
         mapJSON.static_objects.forEach(object => {
             const mapObject = this.addAsSeparatedObjectToMap(this.maps[mapJSON.id], object, true);
             mapObject.updateMatrixWorld(true);
@@ -31,18 +40,27 @@ class Simulator {
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "CREATED MAP", mapJSON.id);
     }
 
+    //public
     startMap(mapId, callback) {
         const map = this.maps[mapId];
+        this.stats.addMetric("loop", true);
+        map.count = 0;
         map.loop = setInterval(() => {
-            map.objects.forEach(object => this.updateObject(map, object));
-            if (Object.keys(map.change).length !== 0) {
-                callback(Object.keys(map.players), map.change);
-                map.change = {};
+            this.stats.start("loop");
+            const mol = map.physicsObjects.length;
+            for (let i = 0; i < mol; i++) { this.updateObject(map, map.physicsObjects[i]) }
+            if (Object.keys(map.changes).length !== 0) {
+                //console.log(map.changes)
+                callback(Object.keys(map.players), map.changes);
+                map.changes = {};
             }
-        }, 1000 / 30);
+            map.count++;
+            this.stats.end("loop");
+        }, 31); //-> 30fps more or less 31
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "STARTED MAP", mapId);
     }
 
+    //public
     stopMap(mapId) {
         clearInterval(this.maps[mapId].loop);
         console.log("\x1b[35m%s\x1b[0m", "SIMULATOR:", "STOPPED MAP", mapId, mapId);
@@ -51,17 +69,57 @@ class Simulator {
 
     updateObject(map, object) {
         if (this.physics.isPhysicsObject(object)) {
-
-            this.physics.prepareObject(object);
-
             if (object.userData.playerId) {
-                this.controller.applyForceFromActions(object);
+                this.controller.applyForceFromActions(object);//0.003ms when no action
+            } else if (object.isInstancedMesh === true) {
+                var positions = [];
+                for (let i = 0; i < object.count; i++) {
+
+                    var instance = { userData: { physics: object.userData.physics } }
+
+                    // let mat = new THREE.Matrix4();
+                    // object.getMatrixAt(i, mat);
+                    // let vec = new THREE.Vector3();
+                    // vec.setFromMatrixPosition(mat);
+
+                    const matrix = new THREE.Matrix4();
+                    const position = new THREE.Vector3(
+                        Math.round(Math.random() * 1000 - 500),
+                        Math.round(Math.random() * 1000 - 500),
+                        Math.round(Math.random() * 1000 - 500)
+                    );
+                    const rotation = new THREE.Euler(
+                        Math.round(Math.random() * 2 * Math.PI),
+                        Math.round(Math.random() * 2 * Math.PI),
+                        Math.round(Math.random() * 2 * Math.PI)
+                    );
+                    const quaternion = new THREE.Quaternion();
+                    quaternion.setFromEuler(rotation);
+                    const scale = new THREE.Vector3(1, 1, 1);
+
+                    matrix.compose(position, quaternion, scale);
+                    object.setMatrixAt(i, matrix);
+                    positions.push(position.x);
+                    positions.push(position.y);
+                    positions.push(position.z);
+                }
+                
+                this.physics.mapBounds(object);
+                if (map.count % 30 === 0) {
+                    this.physics.getChanges(object).forEach(change => {
+                        this.submitChange(map, object.uuid, change);
+                    });
+                }
+            } else {
+                //this.physics.gravitySpacial(object, map.physicsObjects);
             }
 
-            this.physics.collision(object, map.objects);
-            this.physics.spacialGravity(object, map.objects);
-            this.physics.airResistance(object);
-            this.physics.updatePosition(object);
+            if (object.userData.physics.currentSpeed.length() !== 0) {
+                //this.physics.collisionIntersect(object, map.physicsObjects);
+                //this.physics.airResistance(object);
+                //this.physics.airResistanceBasic(object);
+                //this.physics.mapBounds(object);
+            }
 
             this.physics.getChanges(object).forEach(change => {
                 this.submitChange(map, object.uuid, change);
@@ -70,13 +128,14 @@ class Simulator {
     }
 
     submitChange(map, uuid, change) {
-        if (map.change[uuid] !== undefined) {
-            Object.entries(change).forEach(([key, values]) => {
-                map.change[uuid][key] = values;
+        if (map.changes[uuid] !== undefined) {
+            Object.entries(change).forEach(([key, value]) => {
+                map.changes[uuid][key] = value;
             });
-        } else { map.change[uuid] = change; }
+        } else { map.changes[uuid] = change; }
     }
 
+    //public
     controlPlayer(playerId, change) {
         const mapId = this.getMapIdOfPlayer(playerId);
         const object = this.maps[mapId].players[playerId];
@@ -85,9 +144,10 @@ class Simulator {
         this.controller.updateActions(object, change);
     }
 
+    //public
     addPlayerToMap(playerId, mapId) {
         const map = this.maps[mapId];
-        const player = new Player(playerId, THREE);
+        const player = new Player(playerId);
         const playerObj = this.addAsSeparatedObjectToMap(map, player.objects.yaw);
         map.players[playerId] = playerObj;
 
@@ -99,6 +159,7 @@ class Simulator {
         };
     }
 
+    //public
     removePlayerFromMap(playerToRemoveId) {
         let res = { mapId: undefined, playerIds: [], removedObjectIds: [] };
         Object.entries(this.maps).forEach(([mapId, map]) => {
@@ -116,8 +177,10 @@ class Simulator {
         return res;
     }
 
+    //public
     getPlayers(mapId) { return Object.keys(this.maps[mapId].players); }
 
+    //public
     getMapIdOfPlayer(playerId) {
         let res = undefined;
         Object.entries(this.maps).forEach(([mapId, map]) => {
@@ -126,14 +189,20 @@ class Simulator {
         return res;
     }
 
+    //public
     getPlayersIdsOfMap(mapId) { //for ui
         return Object.keys(this.maps[mapId].players);
     }
 
     addAsSeparatedObjectToMap(map, object, objectFromJSON) {
         const { objectJSON, visualsJSON } = this.separateObject(objectFromJSON === true ? object : object.toJSON());
-        const sepObject = new THREE.ObjectLoader().parse(objectJSON);
-        map.objects.push(sepObject);
+        const sepObject = new ObjectLoader().parse(objectJSON);
+        if (sepObject.userData && sepObject.userData.physics && sepObject.userData.physics.mass) {
+            this.physics.prepareObject(sepObject);
+            map.physicsObjects.push(sepObject);
+        } else {
+            map.objects.push(sepObject);
+        }
         map.visuals[objectJSON.object.uuid] = visualsJSON;
         return sepObject;
     }
@@ -175,6 +244,9 @@ class Simulator {
 
     joinObjects(map) {
         const mapObjects = [];
+        map.physicsObjects.forEach(object => {
+            mapObjects.push(this.joinObject(object, map.visuals[object.uuid]));
+        })
         map.objects.forEach(object => {
             mapObjects.push(this.joinObject(object, map.visuals[object.uuid]));
         })
@@ -199,4 +271,4 @@ class Simulator {
         return objectJSON;
     }
 }
-module.exports = Simulator;
+export default Simulator;

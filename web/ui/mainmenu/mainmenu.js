@@ -1,7 +1,8 @@
-class Mainmenu extends Ui {
+import { createHTML } from "../ui.js"
+
+class Mainmenu {
 
     constructor(game) {
-        super();
         this.game = game;
     }
 
@@ -16,7 +17,7 @@ class Mainmenu extends Ui {
     }
 
     createLayout(parent) {
-        const elements = this.createHTML(`
+        const elements = createHTML(`
             <div class="mainMenuWrapper">
                 <div class="side"></div>
                 <div class="stage"></div>
@@ -27,7 +28,7 @@ class Mainmenu extends Ui {
 
     createMenuPage(parent) {
 
-        const menu = this.createHTML(`
+        const menu = createHTML(`
             <h1>Menu</h1>
             <ul>
                 <li><input type="submit" value="Lobby" class="selected"></li>
@@ -67,17 +68,19 @@ class Mainmenu extends Ui {
     async loadPage(pageName) {
         switch (pageName) {
             case "Lobby":
-                await this.game.loader.load("ui/mainmenu/maps/maps", 1);
+                const Maps = await this.game.loader.load("/ui/mainmenu/maps/maps", 1);
                 new Maps(this.game, this.stage);
                 break;
             case "Characters":
-                await this.game.loader.load("ui/mainmenu/characters/characters")
+                const Characters = await this.game.loader.load("/ui/mainmenu/characters/characters")
                 new Characters(this.game, this.stage);
                 break;
             case "Settings":
-                await this.game.loader.load("ui/mainmenu/settings/settings", 1);
+                const Settings = await this.game.loader.load("/ui/mainmenu/settings/settings", 1);
                 new Settings(this.game, this.stage);
                 break;
         }
     }
 }
+
+export default Mainmenu

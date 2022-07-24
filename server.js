@@ -1,3 +1,11 @@
+import fs from "fs"
+import joi from "joi"
+import argon2 from "argon2"
+import Database from "./server/database.js"
+import Webserver from "./server/webserver.js"
+import WSServer from "./server/wsserver.js"
+import Simulator from "./server/simulator.js"
+
 (async () => {//to be able to use await to define init order
   //#################################### Heroku ####################################################
   const heroku = process.env.PORT ? true : false;
@@ -8,44 +16,90 @@
 
   //#################################### Dependancies #############################################
 
-  //Request Validation
-  const joi = require('joi');
   //Modern Hashing
-  const argon2 = require('argon2');
   const pepper = "|>3|>|>3|2";
 
-  //#################################### Config ##################################################
+  //#################################### Config ########################################
 
   //Load config file
-  const config = JSON.parse(require('fs').readFileSync('config.json'));
+  const config = JSON.parse(fs.readFileSync('config.json'));
 
   //#################################### Init main components ####################################
 
   //Database init
-  const Database = require("./server/database.js");
   const db = new Database(heroku ? config.database : config.database_dev);
   await db.init();
 
   //Webserver init
-  const Webserver = require("./server/webserver.js");
   const webserver = new Webserver(config.webserver);
   await webserver.init();
 
   //Websocket init
-  const WSServer = require("./server/wsserver.js");
-  const wss = new WSServer(webserver.server);
+  const wss = new WSServer(config.webSocketServer, webserver.server);
 
   //Webserver (complete init)
   webserver.hostFiles({ joi: joi, db: db, wss: wss });
 
-  //Simulator
-  const Simulator = require("./server/simulator.js");
-  //const { settings } = require('cluster');
+  // //Worker for Simulator
+  // const { Worker } = require('worker_threads')
+  // const worker = new Worker("./server/simWorker.js");
+  // worker.postMessage({ action: "startSim" });
+
+  // const actions = {};
+  // worker.on('message', data => {
+  //   //console.log("server got", data.action);
+  //   const action = actions[data.action];
+  //   if (typeof action === "function") { action(data.data); }
+  // })
+  // const sim = {
+  //   addMapFromJSON: mapJSON => {
+  //     worker.postMessage({ action: "addMapFromJSON", data: { mapJSON: mapJSON } });
+  //   },
+  //   startMap: (mapId, callback) => {
+  //     worker.postMessage({ action: "startMap", data: { mapId: mapId } });
+  //     actions.startMap = data => { callback(data.playerIds, data.mapChange) };
+  //   },
+  //   stopMap: mapId => {
+  //     return new Promise((res, rej) => {
+  //       worker.postMessage({ action: "stopMap", data: { mapId: mapId } });
+  //       actions.stopMap = data => { res(data) };
+  //     });
+  //   },
+  //   getPlayersIdsOfMap: mapId => {
+  //     return new Promise((res, rej) => {
+  //       worker.postMessage({ action: "getPlayersIdsOfMap", data: { mapId: mapId } });
+  //       actions.getPlayersIdsOfMap = data => { res(data) };
+  //     });
+  //   },
+  //   addPlayerToMap: (clientId, mapId) => {
+  //     return new Promise((res, rej) => {
+  //       console.log("addPlayerToMap");
+  //       worker.postMessage({ action: "addPlayerToMap", data: { clientId: clientId, mapId: mapId } });
+  //       actions.addPlayerToMap = data => { res(data) };
+  //     });
+  //   },
+  //   removePlayerFromMap: clientId => {
+  //     return new Promise((res, rej) => {
+  //       worker.postMessage({ action: "removePlayerFromMap", data: { clientId: clientId } });
+  //       actions.removePlayerFromMap = data => { res(data) };
+  //     });
+  //   },
+  //   controlPlayer: (clientId, data) => {
+  //     return new Promise((res, rej) => {
+  //       worker.postMessage({ action: "controlPlayer", data: { clientId: clientId, data: data } });
+  //       actions.controlPlayer = data => { res(data) };
+  //     });
+  //   },
+  // }
+
+  // //Simulator
   const sim = new Simulator();
+
+  //const { settings } = require('cluster');????
 
   //load maps into Sim
   db.getMaps().then(dbRes => {
-    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMap(map); }); }
+    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMapFromJSON(map); }); }
   });
 
   //#################################### Request handling #######################################
@@ -60,11 +114,11 @@
     if (valRes.error !== null) { send("error", "Validation failed"); return; }
 
     //Check database for user
-    const dbRes = await db.getUser({ username: data.username });
+    const dbRes = await db.getUser({ username: valRes.value.username });
     if (dbRes.length !== 1) { send("error", "User not found"); return; }
 
     //Check password
-    const pswRes = await argon2.verify(dbRes[0].password, dbRes[0].salt + data.password + pepper)
+    const pswRes = await argon2.verify(dbRes[0].password, dbRes[0].salt + valRes.value.password + pepper)
     if (pswRes !== true) { send("error", "Password verification failed"); return; }
 
     //close connection if same client is logged in //doesnt work on heroku
@@ -77,7 +131,7 @@
     const dbRes2 = await db.addUserClientId(dbRes[0].id, client.id);
     if (dbRes2 !== true) { send("error", "Could not add client_id to user"); return; }
 
-    send("success");
+    send("success", client.id);
   });
 
   //Register
@@ -103,15 +157,15 @@
     }
     user.password = await argon2.hash(user.salt + user.password + pepper);
 
-    // Add user to db
+    //Add user to db
     const dbRes2 = await db.addUser(user);
     if (dbRes2 !== true) { send("error", "Could not add user"); return; }
 
-    // Add default settings to db
+    //Add default settings to db
     const dbRes3 = await db.addSettings(client.id, config.user_default);
     if (dbRes3 !== true) { send("error", "Could not add settings"); return; }
 
-    // // Add default characters to db
+    //Add default characters to db
     const dbRes4 = await db.addCharacter(client.id, config.user_default_character.display_name);
     if (dbRes4 !== true) { send("error", "Could not add character"); return; }
 
@@ -126,8 +180,8 @@
   });
 
   //Websocket disconnect
-  wss.on("websocket", "disconnect", async (data, client) => {
-    const { mapId, playerIds, removedObjectIds } = sim.removePlayerFromMap(client.id);
+  wss.on("websocket", "disconnect", async (client) => {
+    const { mapId, playerIds, removedObjectIds } = await sim.removePlayerFromMap(client.id);
     if (mapId !== undefined) {
       if (playerIds.length > 0) {
         //send info to other clients
@@ -136,7 +190,7 @@
         })
       } else {
         //stop map if last one
-        db.updateMap(sim.stopMap(mapId));
+        db.updateMap(await sim.stopMap(mapId));
       }
     }
     const dbRes = await db.removeUserClientId(client.id);
@@ -146,18 +200,27 @@
   // ######################################## Main Menu ########################################
 
   wss.on("maps", "create", (data, client, send) => {
-    db.addMap(JSON.parse(require('fs').readFileSync(`server/maps/${data.type}.json`))).then(dbRes => {
-      if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
-      sim.addMap(dbRes[0]);
-      send("success");
-    });
+    if (data.mapJSON) {
+      fs.writeFileSync(`./server/maps/${data.type}.json`, JSON.stringify(data.mapJSON, null, 2));
+      db.addMap(JSON.parse(fs.readFileSync(`./server/maps/${data.type}.json`))).then(dbRes => {
+        if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
+        sim.addMapFromJSON(dbRes[0]);
+        send("success");
+      });
+    } else {
+      db.addMap(JSON.parse(fs.readFileSync(`server/maps/${data.type}.json`))).then(dbRes => {
+        if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
+        sim.addMapFromJSON(dbRes[0]);
+        send("success");
+      });
+    }
   });
 
   wss.on("maps", "get", (data, client, send) => {
     db.getMaps()
       .then(dbRes => {
         if (typeof (dbRes) === "object") {
-          dbRes.forEach(map => { map.players = sim.getPlayersIdsOfMap(map.id) });
+          dbRes.forEach(async map => { map.players = await sim.getPlayersIdsOfMap(map.id) });
           send("success", dbRes);
         }
       });
@@ -204,9 +267,10 @@
 
   //map (ingame) ########################################
 
-  wss.on("map", "join", (data, client, send) => {
+  wss.on("map", "join", async (data, client, send) => {
     //Add client to map in simulator
-    const { type, objects, playerIds, newPlayerObjects } = sim.addPlayerToMap(client.id, data.mapId);
+    const { type, objects, playerIds, newPlayerObjects } = await sim.addPlayerToMap(client.id, data.mapId);
+
     //send map state to everyone but client
     playerIds.forEach(playerId => {
       if (playerId !== client.id) {
@@ -218,10 +282,11 @@
       sim.startMap(data.mapId, (playerIds, mapChange) => {
         //send update to every player on change (including self)
         playerIds.forEach(playerId => {
-          wss.send(wss.clients[playerId], "map", "updateMap", "success", mapChange);
+          wss.send(wss.clients[playerId], "map", "updateObjects", "success", mapChange);
         })
       });
     }
+
     //Send map state to client
     send("success", { type: type, objects: objects });
   });
