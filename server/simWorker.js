@@ -1,4 +1,5 @@
-const { workerData, parentPort } = require('worker_threads')
+import { workerData, parentPort } from 'worker_threads'
+import Engine from "../server/engine.js"
 
 parentPort.on("message", data => {
     //console.log("worker got", data.action);
@@ -7,20 +8,19 @@ parentPort.on("message", data => {
 });
 
 global.actions = {
-    startSim: data => {
-        //Simulator
-        const Simulator = require("../server/simulator.js");
-        global.sim = new Simulator();
-    },
-    addMapFromJSON: data => { global.sim.addMapFromJSON(data.mapJSON); },
+    startEngine: () => { global.engine = new Engine(); },
+    addMapFromJSON: data => { global.engine.addMapFromJSON(data.mapJSON); },
     startMap: data => {
-        global.sim.startMap(data.mapId, (playerIds, mapChange) => {
+        global.engine.startMap(data.mapId, (playerIds, mapChange) => {
             parentPort.postMessage({ action: "startMap", data: { playerIds: playerIds, mapChange: mapChange } });
         })
     },
-    stopMap: data => {console.log(data); parentPort.postMessage({ action: "stopMap", data: global.sim.stopMap(data.mapId) }); },
-    getPlayersIdsOfMap: data => { parentPort.postMessage({ action: "getPlayersIdsOfMap", data: global.sim.getPlayersIdsOfMap(data.mapId) }); },
-    addPlayerToMap: data => { parentPort.postMessage({ action: "addPlayerToMap", data: global.sim.addPlayerToMap(data.clientId, data.mapId) }); },
-    removePlayerFromMap: data => { parentPort.postMessage({ action: "removePlayerFromMap", data: global.sim.removePlayerFromMap(data.clientId) }); },
-    controlPlayer: data => { parentPort.postMessage({ action: "controlPlayer", data: global.sim.controlPlayer(data.clientId, data.data) }); }
+    stopMap: data => { console.log(data); parentPort.postMessage({ action: "stopMap", data: global.engine.stopMap(data.mapId) }); },
+    getPlayersIdsOfMap: data => { parentPort.postMessage({ action: "getPlayersIdsOfMap", data: global.engine.getPlayersIdsOfMap(data.mapId) }); },
+    addPlayerToMap: data => { parentPort.postMessage({ action: "addPlayerToMap", data: global.engine.addPlayerToMap(data.clientId, data.mapId) }); },
+    removePlayerFromMap: data => { parentPort.postMessage({ action: "removePlayerFromMap", data: global.engine.removePlayerFromMap(data.clientId) }); },
+    controlPlayer: data => { parentPort.postMessage({ action: "controlPlayer", data: global.engine.controlPlayer(data.clientId, data.data) }); },
+    getMapsInfo: () => { parentPort.postMessage({ action: "getMapsInfo", data: global.engine.getMapsInfo() }); }
 }
+
+

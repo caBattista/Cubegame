@@ -1,30 +1,22 @@
-import { Vector3 } from 'three'
+import { Vector3, Mesh, Matrix4, Euler } from 'three'
 
 class Controller {
 
     constructor() { }
 
-    updateRotation(map, object, change, callback) {
-        if (change.rotation) {
-            object.rotation.y = change.rotation.yaw;
-            object.children[0].rotation.x = change.rotation.pitch;
-            callback(map, object.uuid, {
-                r: this.vectorToXYZ(object.rotation)
-            });
-            callback(map, object.children[0].uuid, {
-                r: this.vectorToXYZ(object.children[0].rotation)
-            });
+    updateRotation(physicsComponent, change) {
+        physicsComponent.rotation.y = change.rotation.yaw;
+        physicsComponent.rotation.x = change.rotation.pitch;
+    }
+
+    updateActions(playerComponent, change) {
+        if (playerComponent.controls.actions[change.action]) {
+            playerComponent.controls.actions[change.action].pressed = change.pressed;
         }
     }
 
-    updateActions(object, change) {
-        if (object.userData.controls.actions[change.action]) {
-            object.userData.controls.actions[change.action].pressed = change.pressed;
-        }
-    }
-
-    applyForceFromActions(object) {
-        const actions = object.userData.controls.actions;
+    applyForceFromActions(playerComponent, physicsComponent) {
+        const actions = playerComponent.controls.actions;
         const anypressed =
             actions.controls_forward.pressed ||
             actions.controls_right.pressed ||
@@ -32,21 +24,21 @@ class Controller {
             actions.controls_left.pressed ||
             actions.controls_jump.pressed
         if (anypressed === true) {
-            const objPhysics = object.userData.physics;
-            const settings = object.userData.controls.settings;
+            const settings = playerComponent.controls.settings;
             const moveForce = actions.controls_sprint.pressed === true ? settings.moveForce * settings.sprintMult : settings.moveForce;
 
-            const worldDirection = object.getWorldDirection(new Vector3());
+            //calculate world direction from euler YXZ 
+            const mat4Els = new Matrix4().makeRotationFromEuler(new Euler().setFromVector3(physicsComponent.rotation, 'YXZ')).elements;
+            const worldDirection = new Vector3(mat4Els[8], mat4Els[9], mat4Els[10]).normalize();
+            const worldDirectionWithoutY = new Vector3(mat4Els[8], 0, mat4Els[10]).normalize();
+
             let forceDirection = new Vector3();
-            function moveDegRad(degRad) {
-                forceDirection.add(worldDirection.clone().applyAxisAngle(new Vector3(0, 1, 0), degRad));
-            }
-            if (actions.controls_forward.pressed === true) { moveDegRad(0); }
-            if (actions.controls_right.pressed === true) { moveDegRad(-Math.PI / 2); }
-            if (actions.controls_backward.pressed === true) { moveDegRad(Math.PI); }
-            if (actions.controls_left.pressed === true) { moveDegRad(Math.PI / 2); }
+            if (actions.controls_forward.pressed === true) { forceDirection.add(worldDirection.clone()); }
+            if (actions.controls_right.pressed === true) { forceDirection.add(worldDirectionWithoutY.clone().applyAxisAngle(new Vector3(0, 1, 0), -Math.PI / 2)); }
+            if (actions.controls_backward.pressed === true) { forceDirection.add(worldDirection.clone().negate()); }
+            if (actions.controls_left.pressed === true) { forceDirection.add(worldDirectionWithoutY.clone().applyAxisAngle(new Vector3(0, 1, 0), Math.PI / 2)); }
             if (actions.controls_jump.pressed === true) { forceDirection.add(new Vector3(0, moveForce, 0)); }
-            objPhysics.currentForce.add(forceDirection.normalize().multiplyScalar(moveForce));
+            physicsComponent.force.add(forceDirection.normalize().multiplyScalar(moveForce));
         }
     }
 

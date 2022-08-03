@@ -101,11 +101,9 @@ class Database {
 
     addMap(map) {
         return new Promise((res, rej) => {
-            this.pgClient.query(`
-            INSERT INTO maps(id, type, max_players, players, settings, static_objects) 
-            VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5)
-            RETURNING *`,
-                [map.type, map.max_players, map.players, JSON.stringify(map.settings), JSON.stringify(map.static_objects)])
+            this.pgClient.query(`INSERT INTO maps(id, json) 
+            VALUES (uuid_generate_v4(), $1) RETURNING *`,
+                [JSON.stringify(map)])
                 .then((pgRes => { res(pgRes.rows); }))
                 .catch(err => { rej(this.handleError(err)); })
         });
@@ -114,7 +112,7 @@ class Database {
     updateMap(map) {
         return new Promise((res, rej) => {
             this.pgClient.query("UPDATE maps SET static_objects = $2 WHERE id = $1",
-                [map.id, JSON.stringify(map.static_objects)])
+                [map.id, JSON.stringify(map)])
                 .then((pgRes => { res(pgRes.rows); }))
                 .catch(err => { rej(this.handleError(err)); })
         });

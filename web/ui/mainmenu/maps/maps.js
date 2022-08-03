@@ -34,9 +34,10 @@ class Maps {
         });
         const res = await this.game.getMaps();
         res.forEach(map => {
+            console.log(map)
             const el = createHTML(`<div>
                 <div title="${map.id}">${keyToHR(map.type)}</div>
-                <div>${map.players.length}/${map.max_players}</div>
+                <div>${map.players}/${map.max_players}</div>
                 <input type="submit" value="Join">
                 </div>`, elements[1]);
             el.children[2].addEventListener("click", async ev => {

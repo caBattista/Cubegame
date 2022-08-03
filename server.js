@@ -4,7 +4,8 @@ import argon2 from "argon2"
 import Database from "./server/database.js"
 import Webserver from "./server/webserver.js"
 import WSServer from "./server/wsserver.js"
-import Simulator from "./server/simulator.js"
+import Engine from "./server/engine.js"
+import { Worker } from 'worker_threads'
 
 (async () => {//to be able to use await to define init order
   //#################################### Heroku ####################################################
@@ -40,66 +41,71 @@ import Simulator from "./server/simulator.js"
   //Webserver (complete init)
   webserver.hostFiles({ joi: joi, db: db, wss: wss });
 
-  // //Worker for Simulator
-  // const { Worker } = require('worker_threads')
-  // const worker = new Worker("./server/simWorker.js");
-  // worker.postMessage({ action: "startSim" });
+  //Worker for Engine
+  const worker = new Worker("./server/simWorker.js");
+  worker.postMessage({ action: "startEngine" });
 
-  // const actions = {};
-  // worker.on('message', data => {
-  //   //console.log("server got", data.action);
-  //   const action = actions[data.action];
-  //   if (typeof action === "function") { action(data.data); }
-  // })
-  // const sim = {
-  //   addMapFromJSON: mapJSON => {
-  //     worker.postMessage({ action: "addMapFromJSON", data: { mapJSON: mapJSON } });
-  //   },
-  //   startMap: (mapId, callback) => {
-  //     worker.postMessage({ action: "startMap", data: { mapId: mapId } });
-  //     actions.startMap = data => { callback(data.playerIds, data.mapChange) };
-  //   },
-  //   stopMap: mapId => {
-  //     return new Promise((res, rej) => {
-  //       worker.postMessage({ action: "stopMap", data: { mapId: mapId } });
-  //       actions.stopMap = data => { res(data) };
-  //     });
-  //   },
-  //   getPlayersIdsOfMap: mapId => {
-  //     return new Promise((res, rej) => {
-  //       worker.postMessage({ action: "getPlayersIdsOfMap", data: { mapId: mapId } });
-  //       actions.getPlayersIdsOfMap = data => { res(data) };
-  //     });
-  //   },
-  //   addPlayerToMap: (clientId, mapId) => {
-  //     return new Promise((res, rej) => {
-  //       console.log("addPlayerToMap");
-  //       worker.postMessage({ action: "addPlayerToMap", data: { clientId: clientId, mapId: mapId } });
-  //       actions.addPlayerToMap = data => { res(data) };
-  //     });
-  //   },
-  //   removePlayerFromMap: clientId => {
-  //     return new Promise((res, rej) => {
-  //       worker.postMessage({ action: "removePlayerFromMap", data: { clientId: clientId } });
-  //       actions.removePlayerFromMap = data => { res(data) };
-  //     });
-  //   },
-  //   controlPlayer: (clientId, data) => {
-  //     return new Promise((res, rej) => {
-  //       worker.postMessage({ action: "controlPlayer", data: { clientId: clientId, data: data } });
-  //       actions.controlPlayer = data => { res(data) };
-  //     });
-  //   },
-  // }
+  const actions = {};
+  worker.on('message', data => {
+    //console.log("server got", data.action);
+    const action = actions[data.action];
+    if (typeof action === "function") { action(data.data); }
+  })
+  const engine = {
+    addMapFromJSON: mapJSON => {
+      worker.postMessage({ action: "addMapFromJSON", data: { mapJSON: mapJSON } });
+    },
+    startMap: (mapId, callback) => {
+      worker.postMessage({ action: "startMap", data: { mapId: mapId } });
+      actions.startMap = data => { callback(data.playerIds, data.mapChange) };
+    },
+    stopMap: mapId => {
+      return new Promise((res, rej) => {
+        worker.postMessage({ action: "stopMap", data: { mapId: mapId } });
+        actions.stopMap = data => { res(data) };
+      });
+    },
+    getPlayersIdsOfMap: mapId => {
+      return new Promise((res, rej) => {
+        worker.postMessage({ action: "getPlayersIdsOfMap", data: { mapId: mapId } });
+        actions.getPlayersIdsOfMap = data => { res(data) };
+      });
+    },
+    addPlayerToMap: (clientId, mapId) => {
+      return new Promise((res, rej) => {
+        console.log("addPlayerToMap");
+        worker.postMessage({ action: "addPlayerToMap", data: { clientId: clientId, mapId: mapId } });
+        actions.addPlayerToMap = data => { res(data) };
+      });
+    },
+    removePlayerFromMap: clientId => {
+      return new Promise((res, rej) => {
+        worker.postMessage({ action: "removePlayerFromMap", data: { clientId: clientId } });
+        actions.removePlayerFromMap = data => { res(data) };
+      });
+    },
+    controlPlayer: (clientId, data) => {
+      return new Promise((res, rej) => {
+        worker.postMessage({ action: "controlPlayer", data: { clientId: clientId, data: data } });
+        actions.controlPlayer = data => { res(data) };
+      });
+    },
+    getMapsInfo: () => {
+      return new Promise((res, rej) => {
+        worker.postMessage({ action: "getMapsInfo" });
+        actions.getMapsInfo = data => { console.log("#############################################################", data); res(data) };
+      });
+    },
+  }
 
-  // //Simulator
-  const sim = new Simulator();
+  // Engine
+  // const engine = new Engine();
 
   //const { settings } = require('cluster');????
 
   //load maps into Sim
   db.getMaps().then(dbRes => {
-    if (typeof (dbRes) === "object") { dbRes.forEach(map => { sim.addMapFromJSON(map); }); }
+    if (typeof (dbRes) === "object") { dbRes.forEach(map => { engine.addMapFromJSON(map); }); }
   });
 
   //#################################### Request handling #######################################
@@ -181,7 +187,7 @@ import Simulator from "./server/simulator.js"
 
   //Websocket disconnect
   wss.on("websocket", "disconnect", async (client) => {
-    const { mapId, playerIds, removedObjectIds } = await sim.removePlayerFromMap(client.id);
+    const { mapId, playerIds, removedObjectIds } = await engine.removePlayerFromMap(client.id);
     if (mapId !== undefined) {
       if (playerIds.length > 0) {
         //send info to other clients
@@ -190,7 +196,7 @@ import Simulator from "./server/simulator.js"
         })
       } else {
         //stop map if last one
-        db.updateMap(await sim.stopMap(mapId));
+        db.updateMap(await engine.stopMap(mapId));
       }
     }
     const dbRes = await db.removeUserClientId(client.id);
@@ -204,27 +210,19 @@ import Simulator from "./server/simulator.js"
       fs.writeFileSync(`./server/maps/${data.type}.json`, JSON.stringify(data.mapJSON, null, 2));
       db.addMap(JSON.parse(fs.readFileSync(`./server/maps/${data.type}.json`))).then(dbRes => {
         if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
-        sim.addMapFromJSON(dbRes[0]);
+        engine.addMapFromJSON(dbRes[0]);
         send("success");
       });
     } else {
       db.addMap(JSON.parse(fs.readFileSync(`server/maps/${data.type}.json`))).then(dbRes => {
         if (dbRes.length !== 1) { wss.send(client, { err: { data: "error creating map" } }); return; }
-        sim.addMapFromJSON(dbRes[0]);
+        engine.addMapFromJSON(dbRes[0]);
         send("success");
       });
     }
   });
 
-  wss.on("maps", "get", (data, client, send) => {
-    db.getMaps()
-      .then(dbRes => {
-        if (typeof (dbRes) === "object") {
-          dbRes.forEach(async map => { map.players = await sim.getPlayersIdsOfMap(map.id) });
-          send("success", dbRes);
-        }
-      });
-  });
+  wss.on("maps", "get", async (data, client, send) => { send("success", await engine.getMapsInfo()); });
 
   // Characters ########################################
 
@@ -268,18 +266,19 @@ import Simulator from "./server/simulator.js"
   //map (ingame) ########################################
 
   wss.on("map", "join", async (data, client, send) => {
-    //Add client to map in simulator
-    const { type, objects, playerIds, newPlayerObjects } = await sim.addPlayerToMap(client.id, data.mapId);
+    //Add client to map in engine
+    const { settings, graphicsObjects, playerGrpahicsObjectInstance, playerIds } = await engine.addPlayerToMap(client.id, data.mapId);
 
-    //send map state to everyone but client
-    playerIds.forEach(playerId => {
-      if (playerId !== client.id) {
-        wss.send(wss.clients[playerId], "map", "addObjects", "success", { type: type, objects: newPlayerObjects })
-      }
-    })
+    // //send map state to everyone but client
+    // playerIds.forEach(playerId => {
+    //   if (playerId !== client.id) {
+    //     wss.send(wss.clients[playerId], "map", "addObjects", "success", { type: type, objects: newPlayerObjects })
+    //   }
+    // })
+
     //start map if first one
     if (playerIds.length == 1) {
-      sim.startMap(data.mapId, (playerIds, mapChange) => {
+      engine.startMap(data.mapId, (playerIds, mapChange) => {
         //send update to every player on change (including self)
         playerIds.forEach(playerId => {
           wss.send(wss.clients[playerId], "map", "updateObjects", "success", mapChange);
@@ -288,12 +287,16 @@ import Simulator from "./server/simulator.js"
     }
 
     //Send map state to client
-    send("success", { type: type, objects: objects });
+    send("success", {
+      settings: settings,
+      graphicsObjects: graphicsObjects,
+      playerGrpahicsObjectInstance: playerGrpahicsObjectInstance
+    });
   });
 
   wss.on("map", "leave", (data, client, send) => {
-    //remove client from map in sim
-    const { mapId, playerIds, removedObjectIds } = sim.removePlayerFromMap(client.id);
+    //remove client from map in engine
+    const { mapId, playerIds, removedObjectIds } = engine.removePlayerFromMap(client.id);
     if (playerIds.length > 0) {
       //send info to other clients
       playerIds.forEach(playerId => {
@@ -301,14 +304,14 @@ import Simulator from "./server/simulator.js"
       })
     } else {
       //stop map if last one
-      db.updateMap(sim.stopMap(mapId));
+      db.updateMap(engine.stopMap(mapId));
     }
     //send success to client
     send("success");
   });
 
   wss.on("map", "playerControl", (data, client, send) => {
-    sim.controlPlayer(client.id, data);
+    engine.controlPlayer(client.id, data);
   });
 
   /*

@@ -1,0 +1,59 @@
+<script>
+    let size = 1000000;
+
+    let map = {
+        entities: [],
+        components: []
+    }
+
+    for (let i = 0; i < size; i++) {
+        map.components[i] = { i: Math.random() };
+    }
+
+    for (let i = 0; i < size; i++) {
+        map.entities[i] = { i: Math.random(), comp: map.components[i] };
+        map.components[i].entitiy = map.entities[i];
+    }
+
+    for (let i = 0; i < size; i++) {
+        map.components[i].entitiy.i++;
+    }
+
+    let map2 = {
+        entities: [],
+        components: []
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.components[i] = { i: Math.random() };
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.entities[i] = { i: Math.random(), comp: i };
+        map2.components[i].entitiy = i;
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.entities[map2.components[i].entitiy].i++;
+    }
+
+
+    let map3 = {
+        entities: [],
+        components: []
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.components[i] = { i: Math.random() };
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.entities[i] = { i: Math.random(), comp: i };
+        map2.components[i].entitiy = i;
+    }
+
+    for (let i = 0; i < size; i++) {
+        map2.entities[map2.components[i].entitiy].i++;
+    }
+
+</script>

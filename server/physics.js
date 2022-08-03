@@ -1,4 +1,4 @@
-import { Vector3, Raycaster, Box3 } from 'three'
+import { Vector3, Raycaster, Box3, Matrix4, Quaternion } from 'three'
 
 class Pysics {
 
@@ -7,194 +7,73 @@ class Pysics {
         this.stats.addMetric("gravity");
     }
 
-    //########################################## gravity ##########################################
+    //########################################## init ##########################################
 
-    gravitySpacial(object, mapObjects, far = 2000, near = 5) {//.18
-        this.stats.start("gravity");
+    initComponents(components) {
+        const compLength = components.length;
+        for (let i = 0; i < compLength; i++) {
+            const component = components[i];
+            component.mass = component.mass ? component.mass : 1;
+            component.prevIntersects = component.prevIntersects ? component.prevIntersects : [];
+            component.force = this.vectorFromXYZ(component.force);
+            component.acceleration = this.vectorFromXYZ(component.acceleration);
+            component.speed = this.vectorFromXYZ(component.speed);
+            component.position = this.vectorFromXYZ(component.position);
+            component.rotation = component.rotation ? this.vectorFromXYZ(component.rotation) : new Vector3(0, 0, 0);
+        }
+    }
 
-        //far needs to be calced in advance on every object or bounding box
-        let objectPhysics = object.userData.physics;
-        const mapObjectsLength = mapObjects.length;
-        for (let i = 0; i < mapObjectsLength; i++) {
-            const attractor = mapObjects[i];
-            let distance = object.position.distanceTo(attractor.position);
-            if (distance < far) {
-                if (distance < far && distance > near) {
-                    //revesing these will attract or oppse
-                    const directionVector = new Vector3().subVectors(attractor.position, object.position);//.011
-                    const forceMagnitude = (objectPhysics.mass * attractor.userData.physics.mass) / (distance * distance);
-                    objectPhysics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));//0.02
-                } else {
-                    object.currentForce = new Vector3();
-                    object.currentAcceleration = new Vector3();
-                    object.currentSpeed = new Vector3();
-                }
+    //########################################## main function ##########################################
+
+    updateComponents(components) {
+        const compLength = components.length;
+        for (let i = 0; i < compLength; i++) {
+            const component = components[i];
+            //this.gravitySpacial(component, components);
+            if (component.speed.length() !== 0) {
+                this.collisionIntersect(component, components);
+                //this.airResistance(component);
+                this.airResistanceBasic(component);
+                this.mapBounds(component);
+            }
+            this.updatePosition(component);
+        }
+    }
+
+    //########################################## updatePosition ##########################################
+
+    updatePosition(component) {
+        //a=F/m
+        component.acceleration = component.force.divideScalar(component.mass);
+        //v=a*t
+        component.speed.add(component.acceleration);
+        //s=v*t
+        component.position.add(component.speed);
+    }
+
+    //########################################## changes ##########################################
+
+    getChangedComponents(components) {
+        let changedComponents = [];
+        const compLength = components.length;
+        for (let i = 0; i < compLength; i++) {
+            const component = components[i];
+            //only submit change if moving
+            if (component.speed.length() !== 0) {
+                changedComponents.push(component);
             }
         }
-        this.stats.end("gravity");
-
-        // if (obectsInVacinity.length > 0) {
-        //     let objectPhysics = object.userData.physics;
-        //     obectsInVacinity.forEach(attractor => {
-        //         if (object.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-        //             attractor.userData.physics.mass) {
-        //             //revesing these will attract or oppse
-        //             const directionVector = new Vector3().subVectors(attractor.position, object.position);
-        //             const distance = directionVector.length();
-        //             if (object.position.distanceTo(attractor.position) > near) {
-        //                 const forceMagnitude =
-        //                     ((objectPhysics.mass * attractor.userData.physics.mass) / (distance * distance));
-        //                 objectPhysics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-        //             } else {
-        //                 object.currentForce = new Vector3();
-        //                 object.currentAcceleration = new Vector3();
-        //                 object.currentSpeed = new Vector3();
-        //             }
-        //         }
-        //     })
-        // }
-    }
-
-    gravityBasic(object, mapObjects) {
-        let objPhysics = object.userData.physics;
-        const raycaster = new Raycaster();
-        raycaster.far = 1;//needs to be slightly higher than half of the height of player
-        raycaster.set(object.position, new Vector3(0, -1, 0));
-        const intersects = raycaster.intersectObjects(mapObjects);
-        if (intersects.length == 0) {
-            objPhysics.currentSpeed -= 0.02;
-            object.position.y += objPhysics.currentSpeed;
-        } else {
-            objPhysics.currentSpeed = 0;
-            object.position.y = intersects[0].point.y + 1;
-        }
-        if (objPhysics.currentSpeed !== 0) {
-            moved = true;
-        }
-    }
-
-    //########################################## air resistance ##########################################
-
-    airResistance(object) {
-        let objPhysics = object.userData.physics;
-        //apply force to acceleration, speed and position
-        let currentSpeedSquared = objPhysics.currentSpeed.length() * objPhysics.currentSpeed.length()
-        // console.log(currentSpeedSquared);
-        let airResistanceForce = objPhysics.currentForce.clone()
-            .negate().normalize().multiplyScalar(currentSpeedSquared)
-        objPhysics.currentForce.add(airResistanceForce);
-    }
-
-    airResistanceBasic(object) {
-        let objPhysics = object.userData.physics;
-        if (objPhysics.currentSpeed.length() < 0.01) { objPhysics.currentSpeed.multiplyScalar(0); }
-        else { objPhysics.currentSpeed.multiplyScalar(0.98); }
-    }
-
-    //########################################## colisions ##########################################
-
-    collisionIntersect(object, mapObjects, far = 4) {
-        //far needs to be calced in advance on every object or bounding box
-        let obectsInVacinity = [];
-        mapObjects.forEach(otherObject => {
-            if (object.position.distanceTo(otherObject.position) < far && object.uuid !== otherObject.uuid) {
-                obectsInVacinity.push(otherObject);
-            }
-        })
-
-        if (obectsInVacinity.length > 0) {
-            let objPhysics = object.userData.physics;
-            let objectBoundingBox = new Box3(new Vector3(), new Vector3());
-            objectBoundingBox.setFromObject(object);
-            let intersects = [];
-            obectsInVacinity.forEach(otherObject => {
-                if (otherObject.userData.physics !== undefined) {
-                    let otherObjectBoundingBox = new Box3(new Vector3(), new Vector3());
-                    otherObjectBoundingBox.setFromObject(otherObject);
-                    if (objectBoundingBox.intersectsBox(otherObjectBoundingBox)) { intersects.push(otherObject.uuid); }
-                }
-            })
-
-            if (objPhysics.prevIntersects.length < intersects.length) {
-                this.bounce(object);
-            }
-            objPhysics.prevIntersects = intersects;
-        }
-    }
-
-    collisionBasic(object, mapObjects) {
-        let objPhysics = object.userData.physics;
-        const raycaster = new Raycaster();
-        raycaster.far = 1;
-        raycaster.set(object.position.clone(), objPhysics.currentSpeed.clone().normalize());
-        const intersects = raycaster.intersectObjects(mapObjects);
-        if (intersects.length !== 0) {
-            this.bounce(object);
-        }
+        return changedComponents;
     }
 
     //########################################## helpers ##########################################
 
-    mapBounds(object) {
-        if ((object.position.x < 1250 && object.position.x > -1250) &&
-            (object.position.y < 1250 && object.position.y > 0) &&
-            (object.position.z < 1250 && object.position.z > -1250)) {
-        } else {
-            this.bounce(object);
-        }
-        if ((object.position.x < 2500 && object.position.x > -2500) &&
-            (object.position.y < 2500 && object.position.y >= 0) &&
-            (object.position.z < 2500 && object.position.z > -2500)) {
-        } else {
-            this.bounce(object);
-        }
+    round(value, decimals) {
+        //Better than normal Math.round(x*y)/y
+        return Number(Math.round(value + 'e' + decimals) + 'e-' + decimals);
     }
 
-    bounce(object) {
-        let objPhysics = object.userData.physics;
-        objPhysics.currentSpeed.negate();
-        // let currentSpeedLength = objPhysics.currentSpeed.length();
-        // let currentSpeed = objPhysics.currentSpeed.clone();
-        //  = .multiply(new Vector3(Math.random(), Math.random(), Math.random()));
-    }
-
-    prepareObject(object) {
-        let physics = object.userData.physics;
-        physics.currentForce = this.vectorFromXYZ(physics.currentForce);
-        physics.currentAcceleration = this.vectorFromXYZ(physics.currentAcceleration);
-        physics.currentSpeed = this.vectorFromXYZ(physics.currentSpeed);
-        physics.prevIntersects = [];
-    }
-
-    isPhysicsObject(object) {
-        if (object.userData !== undefined &&
-            object.userData.physics !== undefined &&
-            object.userData.physics.mass !== undefined) {
-            return true;
-        }
-        return false;
-    }
-
-    updatePosition(object) {
-        let objPhysics = object.userData.physics;
-        //a=F/m
-        objPhysics.currentAcceleration = objPhysics.currentForce.divideScalar(objPhysics.mass);
-        //v=a*t
-        objPhysics.currentSpeed.add(objPhysics.currentAcceleration);
-        //s=v*t
-        object.position.add(objPhysics.currentSpeed);
-        object.updateMatrixWorld(true);
-    }
-
-    getChanges(object, updatePosition = true) {
-        if (updatePosition === true) { this.updatePosition(object); }
-        let res = [];
-        //only submit change if moving
-        if (object.userData.physics.currentSpeed.length() !== 0) {
-            res.push({ p: this.vectorToXYZ(object.position, 3) });
-        }
-        return res;
-    }
+    vectorFromXYZ(xyz = { x: 0, y: 0, z: 0 }) { return new Vector3(xyz.x, xyz.y, xyz.z); }
 
     vectorToXYZ(vector, decimals) {
         if (decimals !== undefined) {
@@ -203,21 +82,154 @@ class Pysics {
                 y: this.round(vector.y, decimals),
                 z: this.round(vector.z, decimals)
             };
-        } else {
-            return {
-                x: vector.x,
-                y: vector.y,
-                z: vector.z
-            };
+        } else { return { x: vector.x, y: vector.y, z: vector.z }; }
+    }
+
+    //########################################## physics features ##########################################
+
+    //########################################## gravity ##########################################
+
+    gravitySpacial(component, components, far = 2000, near = 5) {//.18
+        //this.stats.start("gravity");
+        //far needs to be calced in advance on every component or bounding box
+        const componentsLength = components.length;
+        for (let i = 0; i < componentsLength; i++) {
+            const attractor = components[i];
+            let distance = component.position.distanceTo(attractor.position);
+            if (distance < far) {
+                if (distance < far && distance > near) {
+                    //revesing these will attract or oppse
+                    const directionVector = new Vector3().subVectors(attractor.position, component.position);//.011
+                    const forceMagnitude = (component.mass * attractor.mass) / (distance * distance);
+                    component.force.add(directionVector.normalize().multiplyScalar(forceMagnitude));//0.02
+                } else {
+                    component.force = new Vector3();
+                    component.acceleration = new Vector3();
+                    component.speed = new Vector3();
+                }
+            }
+        }
+        //this.stats.end("gravity");
+
+        // if (obectsInVacinity.length > 0) {
+        //     let componentPhysics = component.userData.physics;
+        //     obectsInVacinity.forEach(attractor => {
+        //         if (component.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
+        //             attractor.userData.physics.mass) {
+        //             //revesing these will attract or oppse
+        //             const directionVector = new Vector3().subVectors(attractor.position, component.position);
+        //             const distance = directionVector.length();
+        //             if (component.position.distanceTo(attractor.position) > near) {
+        //                 const forceMagnitude =
+        //                     ((componentPhysics.mass * attractor.userData.physics.mass) / (distance * distance));
+        //                 componentPhysics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
+        //             } else {
+        //                 component.currentForce = new Vector3();
+        //                 component.currentAcceleration = new Vector3();
+        //                 component.currentSpeed = new Vector3();
+        //             }
+        //         }
+        //     })
+        // }
+    }
+
+    //########################################## air resistance ##########################################
+
+    airResistance(component) {
+        //apply force to acceleration, speed and position
+        let currentSpeedSquared = component.speed.length() * component.speed.length()
+        // console.log(currentSpeedSquared);
+        let airResistanceForce = component.force.clone()
+            .negate().normalize().multiplyScalar(currentSpeedSquared)
+        component.force.add(airResistanceForce);
+    }
+
+    airResistanceBasic(component) {
+        if (component.speed.length() < 0.01) { component.speed.multiplyScalar(0); }
+        else { component.speed.multiplyScalar(0.95); }
+    }
+
+    //########################################## colisions ##########################################
+
+    createBoundingBox(component, size = new Vector3(1, 1, 1)) {
+        let box = new Box3(size.divideScalar(2).clone().negate(), size);
+        box.applyMatrix4(new Matrix4().compose(component.position, new Quaternion(), new Vector3(1, 1, 1)));
+        return box;
+    }
+
+    collisionIntersect(component, components) {
+        let far = Math.max(component.speed.length() * 5, 1.5);
+
+        //far needs to be calced in advance on every component or bounding box
+        let componentsInVacinity = [];
+        let componentsLength = components.length;
+        for (let i = 0; i < componentsLength; i++) {
+            let otherComponent = components[i];
+            if (component.position.distanceTo(otherComponent.position) < far && component !== otherComponent) {
+                componentsInVacinity.push(otherComponent);
+            }
+        }
+        let componentsInVacinityLength = componentsInVacinity.length;
+
+        if (componentsInVacinityLength > 0) {
+            let componentBoundingBox = this.createBoundingBox(component);
+            let intersects = 0;
+            for (let i = 0; i < componentsInVacinityLength; i++) {
+                if (componentBoundingBox.intersectsBox(this.createBoundingBox(componentsInVacinity[i]))) { intersects++; }
+            }
+            if (component.prevIntersects < intersects) {
+                this.bounce(component);
+            }
+            component.prevIntersects = intersects;
         }
     }
 
-    round(value, decimals) {
-        //Better than normal Math.round(x*y)/y
-        return Number(Math.round(value + 'e' + decimals) + 'e-' + decimals);
+    collisionBasic(component, mapObjects) {
+        let objPhysics = component.userData.physics;
+        const raycaster = new Raycaster();
+        raycaster.far = 1;
+        raycaster.set(component.position.clone(), objPhysics.currentSpeed.clone().normalize());
+        const intersects = raycaster.intersectObjects(mapObjects);
+        if (intersects.length !== 0) {
+            this.bounce(component);
+        }
     }
 
-    vectorFromXYZ(xyz = { x: 0, y: 0, z: 0 }) { return new Vector3(xyz.x, xyz.y, xyz.z); }
+    mapBounds(component) {
+        let bounds = 10000;
+        if ((component.position.x < bounds && component.position.x > -bounds) &&
+            (component.position.y < bounds && component.position.y > -bounds) &&
+            (component.position.z < bounds && component.position.z > -bounds)) {
+        } else {
+            this.bounce(component);
+        }
+    }
+
+    bounce(component) {
+        component.speed.negate();
+        // let speedLength = component.speed.length();
+        // let speed = component.speed.clone();
+        //  = .multiply(new Vector3(Math.random(), Math.random(), Math.random()));
+    }
+
 }
 
 export default Pysics;
+
+// gravityBasic(component, components) {
+//     let objPhysics = component.userData.physics;
+//     const raycaster = new Raycaster();
+//     raycaster.far = 1;//needs to be slightly higher than half of the height of player
+//     raycaster.set(component.position, new Vector3(0, -1, 0));
+//     const intersects = raycaster.intersectObjects(components);//will not work!
+//     if (intersects.length == 0) {
+//         component.speed -= 0.02;
+//         component.position.y += component.speed;
+//     } else {
+//         component.speed = 0;
+//         component.position.y = intersects[0].point.y + 1;
+//     }
+//     if (component.speed !== 0) {
+//         moved = true;
+//     }
+// }

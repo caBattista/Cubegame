@@ -6,9 +6,10 @@ self.onmessage = function (e) {
 }
 self.actions = {
     startEngine: async data => {
-        self.engine = new Engine(data.clientId, data.offscreenCanvas, data.settings, data.characters);
+        self.engine = new Engine(data.clientId, data.offscreenCanvas, data.mapData.settings, data.settings, data.characters);
         self.engine.stats.getData(data => { self.postMessage({ action: "stats", data: data }); });
-        self.engine.addObjects(data.mapData);
+        self.engine.addGraphicsObjects(data.mapData.graphicsObjects);
+        self.engine.setPlayerToGraphicsObjectIntance(data.mapData.playerGrpahicsObjectInstance);
     },
     addObjects: data => { self.engine.addObjects(data); },
     updateObjects: data => { self.engine.updateObjects(data); },

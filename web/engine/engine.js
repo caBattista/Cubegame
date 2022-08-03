@@ -3,8 +3,11 @@ import { OBJLoader } from '../three/OBJLoader.js';
 import { Stats } from '../engine/stats.js';
 
 class Engine {
-    constructor(clientId, canvas, settings, characters) {
+    constructor(clientId, canvas, mapSettings, settings, characters) {
         this.clientId = clientId;
+
+        // ############# mapSettings #############
+        this.mapSettings = mapSettings;
 
         // ############# settings #############
         this.settings = settings;
@@ -40,7 +43,7 @@ class Engine {
             canvas: this.canvas.object,
             antialias: true
         });
-        console.log(this.renderer.capabilities.isWebGL2);
+        //console.log(this.renderer.capabilities.isWebGL2);x
         this.renderer.setSize(this.canvas.width, this.canvas.height, false);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -93,7 +96,7 @@ class Engine {
 
         //this.renderloop = setInterval(this.render.bind(this), this.settings.interval);
 
-        setInterval(() => { console.log(this.renderer.info); }, 1000);
+        setInterval(() => { console.log(this.renderer.info); }, 3000);
 
         function loop() {
             this.render();
@@ -118,285 +121,71 @@ class Engine {
         this.stats.end();
     }
 
-    addObjects(data) {
+    setPlayerToGraphicsObjectIntance(data) {
+        this.players[this.clientId] = data;
+        const mesh = this.scene.getObjectByProperty('uuid', data.graphicsObjectId);
+        let mat4 = new THREE.Matrix4();
+        mesh.getMatrixAt(data.instanceId, mat4)
+        let position = new THREE.Vector3();
+        position.setFromMatrixPosition(mat4);
 
-        data.objects.forEach(object => {
-            this.objectLoader.setResourcePath(`maps/${data.type}/textures/`);
+        this.camDummy = new THREE.Mesh();
+        this.camDummy.position.set(position.x, position.y, position.z);
+        this.camera.rotation.set(0, Math.PI, 0);
+        this.camera.position.set(0, 2, -5);
+        this.camDummy.add(this.camera);
+        this.camDummy.updateMatrixWorld(true);
+    }
+
+    addGraphicsObjects(objects) {
+        objects.forEach(object => {
+            this.objectLoader.setResourcePath(`maps/${this.mapSettings.type}/textures/`);
             let parsedObject = this.objectLoader.parse(object);
-            //players
-            if (object.object.userData && object.object.userData.playerId) {
-                if (object.object.userData.playerId === this.clientId) {
-                    this.camera.rotation.set(0.4, Math.PI, 0);
-                    this.camera.position.set(0, 4, -8);
-                    //this.camera.rotation.set(0, Math.PI, 0);
-                    //this.camera.position.set(0, 0, 0);
-                    parsedObject.children[0].add(this.camera);
-                }
-                this.players[this.clientId] = parsedObject;
-            }
             this.scene.add(parsedObject);
         });
-
-        // // geometry
-
-        // const vector = new THREE.Vector4();
-        // const instances = 50000;
-        // const positions = [];
-        // const offsets = [];
-        // const colors = [];
-        // const orientationsStart = [];
-        // const orientationsEnd = [];
-        // positions.push(0.025, - 0.025, 0);
-        // positions.push(- 0.025, 0.025, 0);
-        // positions.push(0, 0, 0.025);
-
-        // // instanced attributes
-
-        // for (let i = 0; i < instances; i++) {
-        //     // offsets
-        //     offsets.push(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
-        //     // colors
-        //     colors.push(Math.random(), Math.random(), Math.random(), Math.random());
-        //     // orientation start
-        //     vector.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
-        //     vector.normalize();
-        //     orientationsStart.push(vector.x, vector.y, vector.z, vector.w);
-        //     // orientation end
-        //     vector.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
-        //     vector.normalize();
-        //     orientationsEnd.push(vector.x, vector.y, vector.z, vector.w);
-        // }
-
-        // const geometry = new THREE.InstancedBufferGeometry();
-        // geometry.instanceCount = instances; // set so its initalized for dat.GUI, will be set in first draw otherwise
-
-        // geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-        // geometry.setAttribute('offset', new THREE.InstancedBufferAttribute(new Float32Array(offsets), 3));
-        // geometry.setAttribute('color', new THREE.InstancedBufferAttribute(new Float32Array(colors), 4));
-        // geometry.setAttribute('orientationStart', new THREE.InstancedBufferAttribute(new Float32Array(orientationsStart), 4));
-        // geometry.setAttribute('orientationEnd', new THREE.InstancedBufferAttribute(new Float32Array(orientationsEnd), 4));
-
-        // // material
-
-        // const material = new THREE.RawShaderMaterial({
-
-        //     uniforms: {
-        //         'time': { value: 1.0 },
-        //         'sineTime': { value: 1.0 }
-        //     },
-        //     vertexShader: `precision highp float;
-
-        //     uniform float sineTime;
-
-        //     uniform mat4 modelViewMatrix;
-        //     uniform mat4 projectionMatrix;
-
-        //     attribute vec3 position;
-        //     attribute vec3 offset;
-        //     attribute vec4 color;
-        //     attribute vec4 orientationStart;
-        //     attribute vec4 orientationEnd;
-
-        //     varying vec3 vPosition;
-        //     varying vec4 vColor;
-
-        //     void main(){
-
-        //         vPosition = offset * max( abs( sineTime * 2.0 + 1.0 ), 0.5 ) + position;
-        //         vec4 orientation = normalize( mix( orientationStart, orientationEnd, sineTime ) );
-        //         vec3 vcV = cross( orientation.xyz, vPosition );
-        //         vPosition = vcV * ( 2.0 * orientation.w ) + ( cross( orientation.xyz, vcV ) * 2.0 + vPosition );
-
-        //         vColor = color;
-
-        //         gl_Position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );
-
-        //     }`,
-        //     fragmentShader: `precision highp float;
-
-        //     uniform float time;
-
-        //     varying vec3 vPosition;
-        //     varying vec4 vColor;
-
-        //     void main() {
-
-        //         vec4 color = vec4( vColor );
-        //         color.r += sin( vPosition.x * 10.0 + time ) * 0.5;
-
-        //         gl_FragColor = color;
-
-        //     }`,
-        //     side: THREE.DoubleSide,
-        //     transparent: true
-
-        // });
-
-        // const mesh = new THREE.Mesh(geometry, material);
-        // mesh.scale.set(100,100,100)
-        // this.scene.add(mesh);
-
-        // let instances = 2000000;
-        // const matrix = new THREE.Matrix4();
-        // const material = new THREE.ShaderMaterial({
-        //     uniforms: {
-        //         time: { value: 1.0 },
-        //         resolution: { value: new THREE.Vector2() }
-        //     },
-        //     /*vertexShader: `
-        //     void main() {
-        //         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        //     }`,*/
-        //     fragmentShader: `
-        //     void main() {
-        //         gl_FragColor = vec4(0.5, 0.0, 0.0, 0.5);
-        //     }`
-        // });
-        // const mesh = new THREE.InstancedMesh(new THREE.BoxBufferGeometry(1, 1, 1),
-        //     /*material*/new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
-        // mesh.receiveShadow = true;
-        // mesh.castShadow = true;
-
-        // const position = new THREE.Vector3();
-        // const rotation = new THREE.Euler();
-        // const quaternion = new THREE.Quaternion();
-        // const scale = new THREE.Vector3();
-        // for (let i = 0; i < instances; i++) {
-        //     position.x = Math.round(Math.random() * 1000 - 500);
-        //     position.y = Math.round(Math.random() * 1000 - 500);
-        //     position.z = Math.round(Math.random() * 1000 - 500);
-        //     rotation.x = Math.round(Math.random() * 2 * Math.PI);
-        //     rotation.y = Math.round(Math.random() * 2 * Math.PI);
-        //     rotation.z = Math.round(Math.random() * 2 * Math.PI);
-        //     quaternion.setFromEuler(rotation);
-        //     scale.x = scale.y = scale.z = Math.random() * 1;
-        //     matrix.compose(position, quaternion, scale);
-        //     mesh.setMatrixAt(i, matrix);
-        //     mesh.setColorAt(i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
-        //     //mesh.setUniformsAt("time", i, Math.random())
-        // }
-        // this.scene.add(mesh);
-
-        // var particles = 10000000;
-        // var geometry = new THREE.BufferGeometry();
-        // var positions = [];
-        // var n = 100000,
-        //     n2 = n / 2; // particles spread in the cube
-        // for (var i = 0; i < particles; i++) {
-        //     // positions
-        //     var x = Math.random() * n - n2;
-        //     var y = Math.random() * n - n2;
-        //     var z = Math.random() * n - n2;
-        //     positions.push(x, y, z);
-        // }
-        // geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        // geometry.computeBoundingSphere();
-        // var material = new THREE.PointsMaterial({
-        //     size: 1,
-        //     color: 0x00aa00
-        // });
-        // let p = new THREE.Points(geometry, material);
-        // this.scene.add(p);
-
-        // // // instantiate a loader
-        // const loader = new OBJLoader();
-        // // // load a resource
-        // loader.load(`/maps/${data.type}/Triss_V1.obj`,
-        //     function (object) {
-        //         let instances = 1000;
-        //         const matrix = new THREE.Matrix4();
-        //         const mesh = new THREE.InstancedMesh(object.children[0].geometry,
-        //             new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
-        //         const position = new THREE.Vector3();
-        //         const rotation = new THREE.Euler();
-        //         const quaternion = new THREE.Quaternion();
-        //         const scale = new THREE.Vector3();
-        //         for (let i = 0; i < instances; i++) {
-        //             position.x = Math.round(Math.random() * 10000 - 5000);
-        //             position.y = Math.round(Math.random() * 10000 - 5000);
-        //             position.z = Math.round(Math.random() * 10000 - 5000);
-        //             //rotation.x = Math.round(Math.random() * 2 * Math.PI);
-        //             //rotation.y = Math.round(Math.random() * 2 * Math.PI);
-        //             //rotation.z = Math.round(Math.random() * 2 * Math.PI);
-        //             quaternion.setFromEuler(rotation);
-        //             scale.x = scale.y = scale.z = 1;//Math.random() * 10;
-        //             matrix.compose(position, quaternion, scale);
-        //             mesh.setMatrixAt(i, matrix);
-        //             mesh.setColorAt(i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
-        //         }
-        //         mesh.receiveShadow = true;
-        //         mesh.castShadow = true;
-        //         this.scene.add(mesh);
-        //     }.bind(this),
-        //     function (xhr) { console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
-        //     function (error) { console.log('An error happened', error); }
-        // );
     }
 
     updateObjects(mapChange) {
-
-        //this.stats2.start();
-        //kinda slow
-        // for (const [objectId, change] of Object.entries(mapChange)) {
-        //     let object = this.scene.getObjectByProperty("uuid", objectId);
-        //     if (object !== undefined) {
-        //         this.moveNormal(change, object);
-        //         //this.moveSmoothed(change, object);
-        //     }
-        // }
-
-        //8x faster
-        // const keys = Object.keys(mapChange);
-        // this.scene.traverse(object => {
-        //     const index = keys.indexOf(object.uuid);
-        //     if (index !== -1) { this.moveNormal(mapChange[keys[index]], object); }
-        // });
-
-        //fastest 10x faster
         this.scene.traverse(object => {
             const objectChange = mapChange[object.uuid];
             if (objectChange !== undefined) {
                 if (object.isInstancedMesh === true) {
-                    const matrix = new THREE.Matrix4();
-                    const position = new THREE.Vector3();
-                    const rotation = new THREE.Euler();
-                    const quaternion = new THREE.Quaternion();
-                    const scale = new THREE.Vector3();
-                    for (let i = 0; i < objectChange.length; i += 3) {
-                        position.x = objectChange[i];
-                        position.y = objectChange[i+1];
-                        position.z = objectChange[i+2];
-                        rotation.x = Math.round(Math.random() * 2 * Math.PI);
-                        rotation.y = Math.round(Math.random() * 2 * Math.PI);
-                        rotation.z = Math.round(Math.random() * 2 * Math.PI);
-                        quaternion.setFromEuler(rotation);
-                        scale.x = scale.y = scale.z = 1;
+                    const objectChangeLength = objectChange.length;
+                    let matrix = new THREE.Matrix4();
+                    let position = new THREE.Vector3();
+                    let quaternion = new THREE.Quaternion();
+                    let scale = new THREE.Vector3();
+                    for (let i = 0; i < objectChangeLength; i++) {
+                        const instnanceChange = objectChange[i];
+                        object.getMatrixAt(instnanceChange.i, matrix);
+                        matrix.decompose(position, quaternion, scale);
+                        if (instnanceChange.p) {
+                            position.set(instnanceChange.p.x, instnanceChange.p.y, instnanceChange.p.z)
+                        }
+                        if (instnanceChange.r) {
+                            quaternion.setFromEuler(new THREE.Euler(instnanceChange.r.x, instnanceChange.r.y, instnanceChange.r.z, 'YXZ'));
+                        }
                         matrix.compose(position, quaternion, scale);
-                        object.setMatrixAt(i, matrix);
-                        object.instanceMatrix.needsUpdate = true;
+                        object.setMatrixAt(instnanceChange.i, matrix);
+                        //object.setColorAt(instnanceChange.i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
+
+                        if (instnanceChange.i === this.players[this.clientId]?.instanceId) {
+                            const a = new THREE.Euler(0, 0, 0, 'XYZ');
+                            a.setFromQuaternion(quaternion);
+                            this.camDummy.rotation.set(a.x, a.y, a.z);
+                            this.camDummy.position.set(position.x, position.y, position.z);
+                            this.camDummy.updateMatrixWorld(true);
+                        }
                     }
-                } else {
-                    this.moveSmoothed(objectChange, object);
-                }
+                    object.instanceMatrix.needsUpdate = true;
+                    //object.instanceColor.needsUpdate = true;
+                } 
+                // else {
+                //     this.moveSmoothed(objectChange[0], object);
+                // }
             }
         });
-
-        // // interesting for server
-        // const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
-        // this.scene.traverse(object => {
-        //     const objectChange = mapChange[object.uuid];
-        //     if (objectChange !== undefined) {
-        //         if (object.userData.playerId || object.parent.userData.playerId) {
-        //             this.moveSmoothed(objectChange, object);
-        //         } else if (frustum.containsPoint(this.vectorFromXYZ(object.position)) || frustum.containsPoint(this.vectorFromXYZ(objectChange.p))) {
-        //             this.moveSmoothed(objectChange, object);
-        //         }
-        //     }
-        // })
-        //this.stats2.end();
     }
-
 
     removeObjects(objectIds) {
         objectIds.forEach(objectId => {
@@ -449,46 +238,258 @@ class Engine {
         };
     }
 
-    // moveSmoothed(data, object) {
-    //     //console.log(object.userData.smoothingInterval);//debug
-    //     clearInterval(object.userData.smoothingInterval);
-
-    //     //calculate step values (distance to move in steps between frames)
-    //     let step = {};
-    //     if (data.p !== undefined) {
-    //         step.position = this.vectorFromXYZ(data.p)
-    //             .sub(object.position).divideScalar(this.settings.smoothing.divider);
-    //     }
-    //     if (data.r !== undefined) {//euler
-    //         step.rotation = this.vectorFromXYZ(data.r)
-    //             .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
-    //     }
-
-    //     let index = this.settings.smoothing.divider - 1;
-
-    //     if (data.p !== undefined) { object.position.add(step.position); }
-    //     if (data.r !== undefined) {
-    //         object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
-    //     }
-
-    //     object.userData.smoothingInterval = setInterval(() => {
-    //         if (index <= 0) {
-    //             clearInterval(object.userData.smoothingInterval);
-    //             // object.userData.smoothingInterval = undefined;//debug
-    //             if (step.position !== undefined) { this.vectorFromXYZ(data.p, object.position); }
-    //             if (step.rotation !== undefined) { object.rotation.setFromVector3(data.r); }
-    //         } else {
-    //             if (step.position !== undefined) { object.position.add(step.position); }
-    //             if (step.rotation !== undefined) {
-    //                 object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
-    //             }
-    //             index--;
-    //         }
-    //     }, this.settings.interval);
-    //   }
-
     vectorFromXYZ(xyz, vector = new THREE.Vector3()) { return vector.set(xyz.x, xyz.y, xyz.z); }
 }
+
+// // geometry
+
+// const vector = new THREE.Vector4();
+// const instances = 50000;
+// const positions = [];
+// const offsets = [];
+// const colors = [];
+// const orientationsStart = [];
+// const orientationsEnd = [];
+// positions.push(0.025, - 0.025, 0);
+// positions.push(- 0.025, 0.025, 0);
+// positions.push(0, 0, 0.025);
+
+// // instanced attributes
+
+// for (let i = 0; i < instances; i++) {
+//     // offsets
+//     offsets.push(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+//     // colors
+//     colors.push(Math.random(), Math.random(), Math.random(), Math.random());
+//     // orientation start
+//     vector.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+//     vector.normalize();
+//     orientationsStart.push(vector.x, vector.y, vector.z, vector.w);
+//     // orientation end
+//     vector.set(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+//     vector.normalize();
+//     orientationsEnd.push(vector.x, vector.y, vector.z, vector.w);
+// }
+
+// const geometry = new THREE.InstancedBufferGeometry();
+// geometry.instanceCount = instances; // set so its initalized for dat.GUI, will be set in first draw otherwise
+
+// geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+// geometry.setAttribute('offset', new THREE.InstancedBufferAttribute(new Float32Array(offsets), 3));
+// geometry.setAttribute('color', new THREE.InstancedBufferAttribute(new Float32Array(colors), 4));
+// geometry.setAttribute('orientationStart', new THREE.InstancedBufferAttribute(new Float32Array(orientationsStart), 4));
+// geometry.setAttribute('orientationEnd', new THREE.InstancedBufferAttribute(new Float32Array(orientationsEnd), 4));
+
+// // material
+
+// const material = new THREE.RawShaderMaterial({
+
+//     uniforms: {
+//         'time': { value: 1.0 },
+//         'sineTime': { value: 1.0 }
+//     },
+//     vertexShader: `precision highp float;
+
+//     uniform float sineTime;
+
+//     uniform mat4 modelViewMatrix;
+//     uniform mat4 projectionMatrix;
+
+//     attribute vec3 position;
+//     attribute vec3 offset;
+//     attribute vec4 color;
+//     attribute vec4 orientationStart;
+//     attribute vec4 orientationEnd;
+
+//     varying vec3 vPosition;
+//     varying vec4 vColor;
+
+//     void main(){
+
+//         vPosition = offset * max( abs( sineTime * 2.0 + 1.0 ), 0.5 ) + position;
+//         vec4 orientation = normalize( mix( orientationStart, orientationEnd, sineTime ) );
+//         vec3 vcV = cross( orientation.xyz, vPosition );
+//         vPosition = vcV * ( 2.0 * orientation.w ) + ( cross( orientation.xyz, vcV ) * 2.0 + vPosition );
+
+//         vColor = color;
+
+//         gl_Position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );
+
+//     }`,
+//     fragmentShader: `precision highp float;
+
+//     uniform float time;
+
+//     varying vec3 vPosition;
+//     varying vec4 vColor;
+
+//     void main() {
+
+//         vec4 color = vec4( vColor );
+//         color.r += sin( vPosition.x * 10.0 + time ) * 0.5;
+
+//         gl_FragColor = color;
+
+//     }`,
+//     side: THREE.DoubleSide,
+//     transparent: true
+
+// });
+
+// const mesh = new THREE.Mesh(geometry, material);
+// mesh.scale.set(100,100,100)
+// this.scene.add(mesh);
+
+// let instances = 2000000;
+// const matrix = new THREE.Matrix4();
+// const material = new THREE.ShaderMaterial({
+//     uniforms: {
+//         time: { value: 1.0 },
+//         resolution: { value: new THREE.Vector2() }
+//     },
+//     /*vertexShader: `
+//     void main() {
+//         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+//     }`,*/
+//     fragmentShader: `
+//     void main() {
+//         gl_FragColor = vec4(0.5, 0.0, 0.0, 0.5);
+//     }`
+// });
+// const mesh = new THREE.InstancedMesh(new THREE.BoxBufferGeometry(1, 1, 1),
+//     /*material*/new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
+// mesh.receiveShadow = true;
+// mesh.castShadow = true;
+
+// const position = new THREE.Vector3();
+// const rotation = new THREE.Euler();
+// const quaternion = new THREE.Quaternion();
+// const scale = new THREE.Vector3();
+// for (let i = 0; i < instances; i++) {
+//     position.x = Math.round(Math.random() * 1000 - 500);
+//     position.y = Math.round(Math.random() * 1000 - 500);
+//     position.z = Math.round(Math.random() * 1000 - 500);
+//     rotation.x = Math.round(Math.random() * 2 * Math.PI);
+//     rotation.y = Math.round(Math.random() * 2 * Math.PI);
+//     rotation.z = Math.round(Math.random() * 2 * Math.PI);
+//     quaternion.setFromEuler(rotation);
+//     scale.x = scale.y = scale.z = Math.random() * 1;
+//     matrix.compose(position, quaternion, scale);
+//     mesh.setMatrixAt(i, matrix);
+//     mesh.setColorAt(i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
+//     //mesh.setUniformsAt("time", i, Math.random())
+// }
+// this.scene.add(mesh);
+
+// var particles = 10000000;
+// var geometry = new THREE.BufferGeometry();
+// var positions = [];
+// var n = 100000,
+//     n2 = n / 2; // particles spread in the cube
+// for (var i = 0; i < particles; i++) {
+//     // positions
+//     var x = Math.random() * n - n2;
+//     var y = Math.random() * n - n2;
+//     var z = Math.random() * n - n2;
+//     positions.push(x, y, z);
+// }
+// geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+// geometry.computeBoundingSphere();
+// var material = new THREE.PointsMaterial({
+//     size: 1,
+//     color: 0x00aa00
+// });
+// let p = new THREE.Points(geometry, material);
+// this.scene.add(p);
+
+// // // instantiate a loader
+// const loader = new OBJLoader();
+// // // load a resource
+// loader.load(`/maps/${data.type}/Triss_V1.obj`,
+//     function (object) {
+//         let instances = 1000;
+//         const matrix = new THREE.Matrix4();
+//         const mesh = new THREE.InstancedMesh(object.children[0].geometry,
+//             new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
+//         const position = new THREE.Vector3();
+//         const rotation = new THREE.Euler();
+//         const quaternion = new THREE.Quaternion();
+//         const scale = new THREE.Vector3();
+//         for (let i = 0; i < instances; i++) {
+//             position.x = Math.round(Math.random() * 10000 - 5000);
+//             position.y = Math.round(Math.random() * 10000 - 5000);
+//             position.z = Math.round(Math.random() * 10000 - 5000);
+//             //rotation.x = Math.round(Math.random() * 2 * Math.PI);
+//             //rotation.y = Math.round(Math.random() * 2 * Math.PI);
+//             //rotation.z = Math.round(Math.random() * 2 * Math.PI);
+//             quaternion.setFromEuler(rotation);
+//             scale.x = scale.y = scale.z = 1;//Math.random() * 10;
+//             matrix.compose(position, quaternion, scale);
+//             mesh.setMatrixAt(i, matrix);
+//             mesh.setColorAt(i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
+//         }
+//         mesh.receiveShadow = true;
+//         mesh.castShadow = true;
+//         this.scene.add(mesh);
+//     }.bind(this),
+//     function (xhr) { console.log((xhr.loaded / xhr.total * 100) + '% loaded'); },
+//     function (error) { console.log('An error happened', error); }
+// );
+
+// // interesting for server
+// const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse));
+// this.scene.traverse(object => {
+//     const objectChange = mapChange[object.uuid];
+//     if (objectChange !== undefined) {
+//         if (object.userData.playerId || object.parent.userData.playerId) {
+//             this.moveSmoothed(objectChange, object);
+//         } else if (frustum.containsPoint(this.vectorFromXYZ(object.position)) || frustum.containsPoint(this.vectorFromXYZ(objectChange.p))) {
+//             this.moveSmoothed(objectChange, object);
+//         }
+//     }
+// })
+//this.stats2.end();
+
+
+// moveSmoothed(data, object) {
+//     //console.log(object.userData.smoothingInterval);//debug
+//     clearInterval(object.userData.smoothingInterval);
+
+//     //calculate step values (distance to move in steps between frames)
+//     let step = {};
+//     if (data.p !== undefined) {
+//         step.position = this.vectorFromXYZ(data.p)
+//             .sub(object.position).divideScalar(this.settings.smoothing.divider);
+//     }
+//     if (data.r !== undefined) {//euler
+//         step.rotation = this.vectorFromXYZ(data.r)
+//             .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
+//     }
+
+//     let index = this.settings.smoothing.divider - 1;
+
+//     if (data.p !== undefined) { object.position.add(step.position); }
+//     if (data.r !== undefined) {
+//         object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+//     }
+
+//     object.userData.smoothingInterval = setInterval(() => {
+//         if (index <= 0) {
+//             clearInterval(object.userData.smoothingInterval);
+//             // object.userData.smoothingInterval = undefined;//debug
+//             if (step.position !== undefined) { this.vectorFromXYZ(data.p, object.position); }
+//             if (step.rotation !== undefined) { object.rotation.setFromVector3(data.r); }
+//         } else {
+//             if (step.position !== undefined) { object.position.add(step.position); }
+//             if (step.rotation !== undefined) {
+//                 object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+//             }
+//             index--;
+//         }
+//     }, this.settings.interval);
+//   }
+
 
 /*
 

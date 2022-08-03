@@ -21,8 +21,7 @@ const createToolTip = htmlString => {
             </div>
         </div>`, document.body);
     tt.children[0].children[0].addEventListener("click", () => tt.remove());
-    const content =
-        createHTML(htmlString, tt.children[0].children[1].children[0], "all");
+    const content = createHTML(htmlString, tt.children[0].children[1].children[0], "all");
     return { tt: tt, content: content };
 }
 

@@ -21,7 +21,7 @@ class Controls {
 
         const mouseMoveHandler = ev => {
             this.rotation.yaw = this.rotation.yaw - ev.movementX * 0.002;
-            this.rotation.pitch = this.rotation.pitch + ev.movementY * 0.002;
+            this.rotation.pitch = Math.min(Math.max(this.rotation.pitch + ev.movementY * 0.002, -Math.PI / 2), Math.PI / 2);
         }
 
         const lockChange = (ev) => {

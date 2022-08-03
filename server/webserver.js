@@ -34,7 +34,6 @@ class Webserver {
 
             //check if requested file is public then send
             if (this.config.public_files.includes(path)) {
-                console.log("public");
                 res.sendFile(path, { root: this.config.root_dir });
             }
             //if clientId is given
