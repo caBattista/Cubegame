@@ -1,8 +1,10 @@
-import { Vector3, Raycaster, Box3, Matrix4, Quaternion } from 'three'
+import { Vector3, Raycaster, Box3, Matrix4, Quaternion, Euler } from 'three'
+import SpacialHashGrid from './spacialHashGrid.js';
 
 class Pysics {
 
     constructor(stats) {
+        this.grid = new SpacialHashGrid([[-500.0, -500.0, -500.0,], [500.0, 500.0, 500.0]], [100, 100, 100]);
         this.stats = stats
         this.stats.addMetric("gravity");
     }
@@ -14,12 +16,14 @@ class Pysics {
         for (let i = 0; i < compLength; i++) {
             const component = components[i];
             component.mass = component.mass ? component.mass : 1;
-            component.prevIntersects = component.prevIntersects ? component.prevIntersects : [];
-            component.force = this.vectorFromXYZ(component.force);
-            component.acceleration = this.vectorFromXYZ(component.acceleration);
-            component.speed = this.vectorFromXYZ(component.speed);
-            component.position = this.vectorFromXYZ(component.position);
-            component.rotation = component.rotation ? this.vectorFromXYZ(component.rotation) : new Vector3(0, 0, 0);
+            component.prevIntersects = component.prevIntersects ? component.prevIntersects : 0;
+            component.force = component.force ? new Vector3().fromArray(component.force) : new Vector3();
+            component.acceleration = component.acceleration ? new Vector3().fromArray(component.acceleration) : new Vector3();
+            component.speed = component.speed ? new Vector3().fromArray(component.speed) : new Vector3();
+            component.matrix = component.matrix ? new Matrix4().fromArray(component.matrix) : new Matrix4();
+            component.dimensions = component.dimensions ? new Vector3().fromArray(component.dimensions) : new Vector3();
+            //register component with the spacial hash grid
+            this.grid.AddComponent(component);
         }
     }
 
@@ -29,14 +33,18 @@ class Pysics {
         const compLength = components.length;
         for (let i = 0; i < compLength; i++) {
             const component = components[i];
-            //this.gravitySpacial(component, components);
+            //this.gravitySpacial(component);
             if (component.speed.length() !== 0) {
-                this.collisionIntersect(component, components);
-                //this.airResistance(component);
-                this.airResistanceBasic(component);
+                //this.collisionIntersect(component);
+                //this.airResistance(component);//buggy
+                //this.airResistanceBasic(component);
                 this.mapBounds(component);
             }
             this.updatePosition(component);
+
+            //update spacial hash grid
+            // component.sphgClient.position = new Vector3().setFromMatrixPosition(component.matrix).toArray();
+            this.grid.UpdateComponent(component);
         }
     }
 
@@ -48,25 +56,48 @@ class Pysics {
         //v=a*t
         component.speed.add(component.acceleration);
         //s=v*t
-        component.position.add(component.speed);
+        component.matrix.setPosition(new Vector3().setFromMatrixPosition(component.matrix).add(component.speed));
     }
 
     //########################################## changes ##########################################
 
-    getChangedComponents(components) {
-        let changedComponents = [];
-        const compLength = components.length;
-        for (let i = 0; i < compLength; i++) {
-            const component = components[i];
+    getChangedComponentsDecomposed(map, component, far = [200, 200, 200]) {
+        let componentsInVacinity = [];
+        if (far[0] >= this.grid._gridDimensions[1][0] * 2) {
+            componentsInVacinity = map.components.physics;
+        } else {
+            componentsInVacinity = this.grid.FindNear(component, far);
+        }
+        let componentsInVacinityLength = componentsInVacinity.length;
+        let changedDecomposdComponents = [];
+        for (let i = 0; i < componentsInVacinityLength; i++) {
+            const component = componentsInVacinity[i];
             //only submit change if moving
             if (component.speed.length() !== 0) {
-                changedComponents.push(component);
+                changedDecomposdComponents.push({
+                    eId: component.eId,
+                    decomposed: this.getDecomposedMatrixAsArrays(component)
+                });
             }
         }
-        return changedComponents;
+        return changedDecomposdComponents;
     }
 
     //########################################## helpers ##########################################
+
+    setPosition(component, position) {
+        component.matrix.elements[12] = position[0];
+        component.matrix.elements[13] = position[1];
+        component.matrix.elements[14] = position[2];
+    }
+
+    getDecomposedMatrixAsArrays(component) {
+        let position = new Vector3();
+        let quaternion = new Quaternion();
+        let scale = new Vector3();
+        component.matrix.decompose(position, quaternion, scale);
+        return { p: position.toArray(), r: new Euler().setFromQuaternion(quaternion).toArray(), s: scale.toArray() }
+    }
 
     round(value, decimals) {
         //Better than normal Math.round(x*y)/y
@@ -89,127 +120,82 @@ class Pysics {
 
     //########################################## gravity ##########################################
 
-    gravitySpacial(component, components, far = 2000, near = 5) {//.18
+    gravitySpacial(component, far = new Vector3(10, 10, 10), near = 2) {//.18
+        let componentsInVacinity = this.grid.FindNear(component, far.toArray());
+        let componentsInVacinityLength = componentsInVacinity.length;
+
         //this.stats.start("gravity");
-        //far needs to be calced in advance on every component or bounding box
-        const componentsLength = components.length;
-        for (let i = 0; i < componentsLength; i++) {
-            const attractor = components[i];
-            let distance = component.position.distanceTo(attractor.position);
-            if (distance < far) {
-                if (distance < far && distance > near) {
-                    //revesing these will attract or oppse
-                    const directionVector = new Vector3().subVectors(attractor.position, component.position);//.011
-                    const forceMagnitude = (component.mass * attractor.mass) / (distance * distance);
-                    component.force.add(directionVector.normalize().multiplyScalar(forceMagnitude));//0.02
-                } else {
-                    component.force = new Vector3();
-                    component.acceleration = new Vector3();
-                    component.speed = new Vector3();
-                }
+        let position = new Vector3().setFromMatrixPosition(component.matrix);
+        for (let i = 0; i < componentsInVacinityLength; i++) {
+            let position2 = new Vector3().setFromMatrixPosition(componentsInVacinity[i].matrix);
+            let distance = position.distanceTo(position2);
+            if (distance > near) {
+                //revesing these will attract or oppse
+                const directionVector = new Vector3().subVectors(position2, position);//.011
+                const forceMagnitude = (component.mass * componentsInVacinity[i].mass) / (distance * distance);
+                component.force.add(directionVector.normalize().multiplyScalar(forceMagnitude * 0.3));//0.02
             }
         }
         //this.stats.end("gravity");
-
-        // if (obectsInVacinity.length > 0) {
-        //     let componentPhysics = component.userData.physics;
-        //     obectsInVacinity.forEach(attractor => {
-        //         if (component.uuid !== attractor.uuid && attractor.userData && attractor.userData.physics &&
-        //             attractor.userData.physics.mass) {
-        //             //revesing these will attract or oppse
-        //             const directionVector = new Vector3().subVectors(attractor.position, component.position);
-        //             const distance = directionVector.length();
-        //             if (component.position.distanceTo(attractor.position) > near) {
-        //                 const forceMagnitude =
-        //                     ((componentPhysics.mass * attractor.userData.physics.mass) / (distance * distance));
-        //                 componentPhysics.currentForce.add(directionVector.normalize().multiplyScalar(forceMagnitude));
-        //             } else {
-        //                 component.currentForce = new Vector3();
-        //                 component.currentAcceleration = new Vector3();
-        //                 component.currentSpeed = new Vector3();
-        //             }
-        //         }
-        //     })
-        // }
     }
 
     //########################################## air resistance ##########################################
 
-    airResistance(component) {
-        //apply force to acceleration, speed and position
-        let currentSpeedSquared = component.speed.length() * component.speed.length()
-        // console.log(currentSpeedSquared);
-        let airResistanceForce = component.force.clone()
-            .negate().normalize().multiplyScalar(currentSpeedSquared)
-        component.force.add(airResistanceForce);
+    airResistance(component, reduction = 0.95, minSpeed = 0.05) {
+        if (component.speed.length() < minSpeed) { component.speed.multiplyScalar(0); }
+        else {
+            //apply force to acceleration, speed and position
+            let currentSpeedSquared = component.speed.length() * component.speed.length() * reduction;
+            // console.log(currentSpeedSquared);
+            let airResistanceForce = component.force.clone()
+                .negate().normalize().multiplyScalar(currentSpeedSquared)
+            component.force.add(airResistanceForce);
+        }
     }
 
-    airResistanceBasic(component) {
-        if (component.speed.length() < 0.01) { component.speed.multiplyScalar(0); }
-        else { component.speed.multiplyScalar(0.95); }
+    airResistanceBasic(component, reduction = 0.95, minSpeed = 0.05) {
+        if (component.speed.length() < minSpeed) { component.speed.multiplyScalar(0); }
+        else { component.speed.multiplyScalar(reduction); }
     }
 
     //########################################## colisions ##########################################
 
-    createBoundingBox(component, size = new Vector3(1, 1, 1)) {
-        let box = new Box3(size.divideScalar(2).clone().negate(), size);
-        box.applyMatrix4(new Matrix4().compose(component.position, new Quaternion(), new Vector3(1, 1, 1)));
-        return box;
+    createBoundingBox(component) {
+        return new Box3(component.dimensions.clone().divideScalar(2).negate(), component.dimensions.clone().divideScalar(2)).applyMatrix4(component.matrix);
     }
 
-    collisionIntersect(component, components) {
-        let far = Math.max(component.speed.length() * 5, 1.5);
-
+    collisionIntersect(component, far = new Vector3(10, 10, 10)) {
         //far needs to be calced in advance on every component or bounding box
-        let componentsInVacinity = [];
-        let componentsLength = components.length;
-        for (let i = 0; i < componentsLength; i++) {
-            let otherComponent = components[i];
-            if (component.position.distanceTo(otherComponent.position) < far && component !== otherComponent) {
-                componentsInVacinity.push(otherComponent);
-            }
-        }
+        //get nearby from spacial hash grid
+        let componentsInVacinity = this.grid.FindNear(component, far.toArray());
         let componentsInVacinityLength = componentsInVacinity.length;
 
         if (componentsInVacinityLength > 0) {
             let componentBoundingBox = this.createBoundingBox(component);
-            let intersects = 0;
+            let intersects = [];
             for (let i = 0; i < componentsInVacinityLength; i++) {
-                if (componentBoundingBox.intersectsBox(this.createBoundingBox(componentsInVacinity[i]))) { intersects++; }
+                if (component.eId !== componentsInVacinity[i].eId && componentBoundingBox.intersectsBox(this.createBoundingBox(componentsInVacinity[i]))) {
+                    intersects.push(componentsInVacinity[i]);
+                }
             }
-            if (component.prevIntersects < intersects) {
-                this.bounce(component);
+            if (intersects.length > 0 && component.prevIntersects.length < intersects.length) {
+                this.bounce(component, intersects[0]);
             }
             component.prevIntersects = intersects;
         }
     }
 
-    collisionBasic(component, mapObjects) {
-        let objPhysics = component.userData.physics;
-        const raycaster = new Raycaster();
-        raycaster.far = 1;
-        raycaster.set(component.position.clone(), objPhysics.currentSpeed.clone().normalize());
-        const intersects = raycaster.intersectObjects(mapObjects);
-        if (intersects.length !== 0) {
-            this.bounce(component);
-        }
-    }
-
-    mapBounds(component) {
-        let bounds = 10000;
-        if ((component.position.x < bounds && component.position.x > -bounds) &&
-            (component.position.y < bounds && component.position.y > -bounds) &&
-            (component.position.z < bounds && component.position.z > -bounds)) {
-        } else {
-            this.bounce(component);
-        }
-    }
-
-    bounce(component) {
+    bounce(component, otherComponent) {
+        // console.log(component, otherComponent);
+        // otherComponent.speed.add(component.speed);
         component.speed.negate();
-        // let speedLength = component.speed.length();
-        // let speed = component.speed.clone();
-        //  = .multiply(new Vector3(Math.random(), Math.random(), Math.random()));
+    }
+
+    mapBounds(component, bounds = 500) {
+        let position = new Vector3().setFromMatrixPosition(component.matrix);
+        if ((position.x > bounds || position.x < -bounds) ||
+            (position.y > bounds || position.y < -bounds) ||
+            (position.z > bounds || position.z < -bounds)) { this.bounce(component); }
     }
 
 }

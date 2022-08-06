@@ -278,11 +278,9 @@ import { Worker } from 'worker_threads'
 
     //start map if first one
     if (playerIds.length == 1) {
-      engine.startMap(data.mapId, (playerIds, mapChange) => {
-        //send update to every player on change (including self)
-        playerIds.forEach(playerId => {
-          wss.send(wss.clients[playerId], "map", "updateObjects", "success", mapChange);
-        })
+      engine.startMap(data.mapId, (playerId, mapChange) => {
+        //send update to player on change (including self)
+        wss.send(wss.clients[playerId], "map", "updateObjects", "success", mapChange);
       });
     }
 

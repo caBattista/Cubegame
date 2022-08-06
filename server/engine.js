@@ -46,7 +46,7 @@ class Engine {
     startMap(mapId, callback) {
         const map = this.maps[mapId];
         this.stats.addMetric("loop", true);
-        map.count = 0;
+        map.frameCount = 0;
         map.loop = setInterval(() => {
             this.stats.start("loop");
 
@@ -60,29 +60,30 @@ class Engine {
 
             //Physics System
             this.physics.updateComponents(map.components.physics);
-            this.physics.getChangedComponents(map.components.physics).forEach(physicsComponent => {
-                const graphicsComponent = this.ecs.getComponent(map, physicsComponent.eId, "graphics");
-                const graphicsObject = map.graphicsObjects[graphicsComponent.gObj];
-                const graphicsObjectId = graphicsObject.object.uuid;
-                if (map.changes[graphicsObjectId] === undefined) {
-                    map.changes[graphicsObjectId] = [];
-                }
-                const change = {
-                    p: this.physics.vectorToXYZ(physicsComponent.position, 3),
-                    r: this.physics.vectorToXYZ(physicsComponent.rotation, 3),
-                };
-                if (graphicsObject.object.type === "InstancedMesh") {
-                    change.i = graphicsComponent.inst;
-                }
-                map.changes[graphicsObjectId].push(change);
-            });
 
-            if (Object.keys(map.changes).length !== 0) {
-                // console.log(map.changes);
-                callback(this.ecs.getPlayerIds(map), map.changes);
-                map.changes = {};
-            }
-            map.count++;
+
+            this.ecs.getPlayerIds(map).forEach(playerId => {
+                let playerComponent = this.ecs.getPlayerComponentByPlayerId(map, playerId);
+                let physicsComponent = this.ecs.getComponent(map, playerComponent.eId, "physics");
+
+                let updateRadius = 1;
+                if (map.frameCount % 2 === 0) { updateRadius *= 2; }
+                if (map.frameCount % 4 === 0) { updateRadius *= 2; }
+                if (map.frameCount % 8 === 0) { updateRadius *= 2; }
+                if (map.frameCount % 16 === 0) { updateRadius *= 2; }
+                if (map.frameCount % 32 === 0) { updateRadius *= 2; }
+                if (map.frameCount % 64 === 0) { updateRadius = 10000; }
+
+                this.physics.getChangedComponentsDecomposed(map, physicsComponent, [updateRadius, updateRadius, updateRadius]).forEach(({ eId, decomposed }) => {
+                    this.submitGraphicsObjectChange(map, eId, decomposed)
+                });
+                if (Object.keys(map.changes).length !== 0) {//needs to be individual to player
+                    // console.log(map.changes);
+                    callback(playerId, map.changes);
+                    map.changes = {};
+                }
+            })
+            map.frameCount++;
             this.stats.end("loop");
         }, 30); //-> 30fps more or less 31
         console.log("\x1b[35m%s\x1b[0m", "ENGINE:", "STARTED MAP", mapId);
@@ -97,24 +98,28 @@ class Engine {
 
     //public
     controlPlayer(playerId, change) {
-        const { map, entity } = this.ecs.findPlayer(this.maps, playerId);
+        const { map, entity } = this.ecs.getPlayer(this.maps, playerId);
         const playerComponent = map.components.player[entity.player];
         const physicsComponent = map.components.physics[entity.physics];
         if (change.rotation) {
-            this.controller.updateRotation(physicsComponent, change);
-            const graphicsComponent = this.ecs.getComponent(map, physicsComponent.eId, "graphics");
-            const graphicsObject = map.graphicsObjects[graphicsComponent.gObj];
-            const graphicsObjectId = graphicsObject.object.uuid;
-            if (map.changes[graphicsObjectId] === undefined) {
-                map.changes[graphicsObjectId] = [];
-            }
-            map.changes[graphicsObjectId].push({
-                i: graphicsComponent.inst,
-                r: this.physics.vectorToXYZ(physicsComponent.rotation, 3),
-            });
+            const rotation = this.controller.updateRotation(physicsComponent, change);
+            this.submitGraphicsObjectChange(map, physicsComponent.eId, { r: rotation })
         }
-
         this.controller.updateActions(playerComponent, change);
+    }
+
+    submitGraphicsObjectChange(map, eId, change) {
+        const graphicsComponent = this.ecs.getComponent(map, eId, "graphics");
+        const graphicsObject = map.graphicsObjects[graphicsComponent.gObj];
+        const graphicsObjectId = graphicsObject.object.uuid;
+        if (graphicsObject.object.type === "InstancedMesh") {
+            change.i = graphicsComponent.inst;
+        }
+        if (map.changes[graphicsObjectId] === undefined) {
+            map.changes[graphicsObjectId] = [change];
+        } else {
+            map.changes[graphicsObjectId].push(change);
+        }
     }
 
     //public
@@ -130,6 +135,14 @@ class Engine {
                 break;
             }
         }
+
+        //setposition
+        let physicsComponent = this.ecs.getComponent(map, entityId, "physics");
+        physicsComponent.speed.x = 0;
+        physicsComponent.speed.y = 0;
+        physicsComponent.speed.z = 0;
+        this.physics.setPosition(physicsComponent, [0, 0.5, 0]);
+
 
         //create the player component
         this.ecs.createComponent(map, entityId, "player", {

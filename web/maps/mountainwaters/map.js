@@ -115,126 +115,53 @@ class Map2 {
         this.map.entities[++this.currentEId] = { graphics: gid };
         this.map.components.graphics[gid] = { gObj: this.currentGId };
 
-        // //##################### water #####################
-        // //not running in this version
-        // const waterGeometry = new THREE.PlaneBufferGeometry(8000, 8000);
-        // if (settings.graphics_quality === "High") {
-        //     const water = new THREE.Water(
-        //         waterGeometry,
-        //         {
-        //             textureWidth: 1024,
-        //             textureHeight: 1024,
-        //             waterNormals: this.textures['maps/mountainwaters/textures/water/waternormals.jpg'],
-        //             alpha: 0.9,
-        //             sunDirection: new THREE.Vector3(0,0,0),
-        //             sunColor: 0xffffff,
-        //             waterColor: 0x00190f,
-        //             distortionScale: 5,
-        //             fog: this.scene.fog !== undefined,
-        //             wireframe: settings.useWireframe
-        //         }
-        //     );
-        //     water.material.uniforms.size.value = 1;
-        //     //water.position.set(0, -1, 0);
-        //     //water.rotation.x = - Math.PI / 2;
-        //     this.scene.add(water);
-        // }
-        // else {
-        //     const water = new THREE.Water(
-        //         waterGeometry,
-        //         {
-        //             alpha: 0.9,
-        //             sunDirection: sun.position.clone().normalize(),
-        //             sunColor: 0xffffff,
-        //             waterColor: 0x00190f,
-        //             distortionScale: 5,
-        //             fog: this.scene.fog !== undefined
-        //         }
-        //     );
-        //     water.position.set(0, -1, 0);
-        //     water.rotation.x = - Math.PI / 2;
-        //     this.scene.add(water);
-        // }
-
-        //##################### mesh #####################
-
-        // for (let i = 0; i < 1000; i++) {
-        //     let mesh = new THREE.Mesh(
-        //         new THREE.BoxGeometry(1, 1, 1),
-        //         new THREE.MeshPhongMaterial({ color: THREE.MathUtils.randInt(0, 0xffffff), wireframe: false })
-        //     );
-        //     //mesh.add(new THREE.PointLight( THREE.MathUtils.randInt(0, 0xffffff), 0.1, 0 ));
-        //     mesh.position.set((Math.random() * 250) - 125, (Math.random() * 125), (Math.random() * 250) - 125);
-        //     //mesh.receiveShadow = true;
-        //     //mesh.castShadow = true;
-        //     //mesh.name = "centerCube";
-        //     mesh.userData.physics = { mass: (Math.random() * 10), currentSpeed: { x: (Math.random()-0.5)*5, y: (Math.random()-0.5)*5, z: (Math.random()-0.5)*5 }  };
-        //     this.scene.add(mesh);
-        // }
-
-        let instances = 1000;
-        const matrix = new THREE.Matrix4();
-        const mesh = new THREE.InstancedMesh(new THREE.BoxBufferGeometry(1, 1, 1),
-            new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
+        let instances = 20000;
+        const dimensions = [1, 1, 1];
+        const geometry = new THREE.BoxBufferGeometry(...dimensions);
+        const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
         mesh.receiveShadow = true;
         mesh.castShadow = true;
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); //what does this do?
         mesh.name = "intancedCubes";
 
-        const rotation = new THREE.Euler();
-        const quaternion = new THREE.Quaternion();
-        const position = new THREE.Vector3();
+        let matrix = new THREE.Matrix4();
+        let rotation = new THREE.Euler();
+        let quaternion = new THREE.Quaternion();
+        let position = new THREE.Vector3();
+        let scale = new THREE.Vector3(1, 1, 1);
+
         let gOid = ++this.currentGId;
         for (let i = 0; i < instances; i++) {
+
+            //create instances
+            position.set(
+                (Math.random() - 0.5) * 500,
+                (Math.random()) * 500,
+                (Math.random() - 0.5) * 500);
             quaternion.setFromEuler(rotation);
-            position.set((Math.random() - 0.5) * 250, (Math.random()) * 125, (Math.random() - 0.5) * 250);
-            matrix.compose(position, new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
+            matrix.compose(position, quaternion, scale);
             mesh.setMatrixAt(i, matrix);
             mesh.setColorAt(i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
+
+            //create ecs components
             let gid = this.map.components.graphics.length;
             let pid = this.map.components.physics.length;
             this.map.entities[++this.currentEId] = { graphics: gid, physics: pid };
             this.map.components.graphics[gid] = { gObj: gOid, inst: i };
             this.map.components.physics[pid] = {
                 eId: this.currentEId,
-                position: { x: position.x, y: position.y, z: position.z },
-                rotation: { x: 0, y: 0, z: 0 },
+                dimensions: dimensions,
+                matrix: matrix.toArray(),
                 mass: 10,
-                speed: { x: (Math.random() - 0.5) * 10, y: (Math.random() - 0.5) * 10, z: (Math.random() - 0.5) * 10 }
+                speed: [
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2]
             };
         }
 
         mesh.updateMatrixWorld(true);
         this.map.graphicsObjects[gOid] = mesh.toJSON();
-
-        // let geometry = new THREE.SphereGeometry(10, 10, 10);
-        // material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, color: 0xaaaaaa });
-        // let sphere = new THREE.Mesh(geometry, material);
-        // //sphere.receiveShadow = true;
-        // //sphere.castShadow = true;
-        // sphere.position.set(2000, 0, 2000);
-        // sphere.name = "sphere";
-        // sphere.userData.physics = { mass: 1000000 };
-        // this.scene.add(sphere);
-
-        // geometry = new THREE.SphereGeometry(10, 10, 10);
-        // material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, color: 0xaaaaaa });
-        // sphere = new THREE.Mesh(geometry, material);
-        // //sphere.receiveShadow = true;
-        // //sphere.castShadow = true;
-        // sphere.position.set(-2000, 0, -2000);
-        // sphere.name = "sphere2";
-        // sphere.userData.physics = { mass: 1000000 };
-        // this.scene.add(sphere);
-    }
-
-    animate() {
-        //water
-        //this.elements.water.material.uniforms.time.value += 1.0 / 60.0;
-
-        //center rotating cube
-        // this.elements.centerCube.rotation.x += 0.001;
-        // this.elements.centerCube.rotation.y += 0.002;
     }
 
     textures = {
@@ -300,3 +227,89 @@ class Map2 {
 }
 
 export default Map2
+
+// animate() {
+//     // water
+//     // this.elements.water.material.uniforms.time.value += 1.0 / 60.0;
+
+//     // center rotating cube
+//     // this.elements.centerCube.rotation.x += 0.001;
+//     // this.elements.centerCube.rotation.y += 0.002;
+// }
+
+// //##################### water #####################
+// //not running in this version
+// const waterGeometry = new THREE.PlaneBufferGeometry(8000, 8000);
+// if (settings.graphics_quality === "High") {
+//     const water = new THREE.Water(
+//         waterGeometry,
+//         {
+//             textureWidth: 1024,
+//             textureHeight: 1024,
+//             waterNormals: this.textures['maps/mountainwaters/textures/water/waternormals.jpg'],
+//             alpha: 0.9,
+//             sunDirection: new THREE.Vector3(0,0,0),
+//             sunColor: 0xffffff,
+//             waterColor: 0x00190f,
+//             distortionScale: 5,
+//             fog: this.scene.fog !== undefined,
+//             wireframe: settings.useWireframe
+//         }
+//     );
+//     water.material.uniforms.size.value = 1;
+//     //water.position.set(0, -1, 0);
+//     //water.rotation.x = - Math.PI / 2;
+//     this.scene.add(water);
+// }
+// else {
+//     const water = new THREE.Water(
+//         waterGeometry,
+//         {
+//             alpha: 0.9,
+//             sunDirection: sun.position.clone().normalize(),
+//             sunColor: 0xffffff,
+//             waterColor: 0x00190f,
+//             distortionScale: 5,
+//             fog: this.scene.fog !== undefined
+//         }
+//     );
+//     water.position.set(0, -1, 0);
+//     water.rotation.x = - Math.PI / 2;
+//     this.scene.add(water);
+// }
+
+//##################### mesh #####################
+
+// for (let i = 0; i < 1000; i++) {
+//     let mesh = new THREE.Mesh(
+//         new THREE.BoxGeometry(1, 1, 1),
+//         new THREE.MeshPhongMaterial({ color: THREE.MathUtils.randInt(0, 0xffffff), wireframe: false })
+//     );
+//     //mesh.add(new THREE.PointLight( THREE.MathUtils.randInt(0, 0xffffff), 0.1, 0 ));
+//     mesh.position.set((Math.random() * 250) - 125, (Math.random() * 125), (Math.random() * 250) - 125);
+//     //mesh.receiveShadow = true;
+//     //mesh.castShadow = true;
+//     //mesh.name = "centerCube";
+//     mesh.userData.physics = { mass: (Math.random() * 10), currentSpeed: { x: (Math.random()-0.5)*5, y: (Math.random()-0.5)*5, z: (Math.random()-0.5)*5 }  };
+//     this.scene.add(mesh);
+// }
+
+// let geometry = new THREE.SphereGeometry(10, 10, 10);
+// material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, color: 0xaaaaaa });
+// let sphere = new THREE.Mesh(geometry, material);
+// //sphere.receiveShadow = true;
+// //sphere.castShadow = true;
+// sphere.position.set(2000, 0, 2000);
+// sphere.name = "sphere";
+// sphere.userData.physics = { mass: 1000000 };
+// this.scene.add(sphere);
+
+// geometry = new THREE.SphereGeometry(10, 10, 10);
+// material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.8, color: 0xaaaaaa });
+// sphere = new THREE.Mesh(geometry, material);
+// //sphere.receiveShadow = true;
+// //sphere.castShadow = true;
+// sphere.position.set(-2000, 0, -2000);
+// sphere.name = "sphere2";
+// sphere.userData.physics = { mass: 1000000 };
+// this.scene.add(sphere);

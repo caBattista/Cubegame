@@ -150,36 +150,33 @@ class Engine {
             const objectChange = mapChange[object.uuid];
             if (objectChange !== undefined) {
                 if (object.isInstancedMesh === true) {
-                    const objectChangeLength = objectChange.length;
+                    let objectChangeLength = objectChange.length;
                     let matrix = new THREE.Matrix4();
                     let position = new THREE.Vector3();
                     let quaternion = new THREE.Quaternion();
+                    let euler = new THREE.Euler();
                     let scale = new THREE.Vector3();
+                    let color = new THREE.Color();
                     for (let i = 0; i < objectChangeLength; i++) {
                         const instnanceChange = objectChange[i];
-                        object.getMatrixAt(instnanceChange.i, matrix);
-                        matrix.decompose(position, quaternion, scale);
-                        if (instnanceChange.p) {
-                            position.set(instnanceChange.p.x, instnanceChange.p.y, instnanceChange.p.z)
+                        if (instnanceChange.p !== undefined || instnanceChange.r !== undefined || instnanceChange.s !== undefined) {
+                            object.getMatrixAt(instnanceChange.i, matrix);
+                            matrix.decompose(position, quaternion, scale);
+                            if (instnanceChange.p !== undefined) { position.fromArray(instnanceChange.p); }
+                            if (instnanceChange.r !== undefined) { quaternion.setFromEuler(euler.fromArray(instnanceChange.r)); }
+                            if (instnanceChange.s !== undefined) { scale.fromArray(instnanceChange.s); }
+                            matrix.compose(position, quaternion, scale);
+                            object.setMatrixAt(instnanceChange.i, matrix);
+                            object.instanceMatrix.needsUpdate = true;
                         }
-                        if (instnanceChange.r) {
-                            quaternion.setFromEuler(new THREE.Euler(instnanceChange.r.x, instnanceChange.r.y, instnanceChange.r.z, 'YXZ'));
-                        }
-                        matrix.compose(position, quaternion, scale);
-                        object.setMatrixAt(instnanceChange.i, matrix);
-                        //object.setColorAt(instnanceChange.i, new THREE.Color(THREE.MathUtils.randInt(0, 0xffffff)));
-
+                        if (instnanceChange.c !== undefined) { object.setColorAt(instnanceChange.i, color.fromArray(instnanceChange.c)); object.instanceColor.needsUpdate = true; }
                         if (instnanceChange.i === this.players[this.clientId]?.instanceId) {
-                            const a = new THREE.Euler(0, 0, 0, 'XYZ');
-                            a.setFromQuaternion(quaternion);
-                            this.camDummy.rotation.set(a.x, a.y, a.z);
+                            this.camDummy.rotation.setFromQuaternion(quaternion);
                             this.camDummy.position.set(position.x, position.y, position.z);
                             this.camDummy.updateMatrixWorld(true);
                         }
                     }
-                    object.instanceMatrix.needsUpdate = true;
-                    //object.instanceColor.needsUpdate = true;
-                } 
+                }
                 // else {
                 //     this.moveSmoothed(objectChange[0], object);
                 // }

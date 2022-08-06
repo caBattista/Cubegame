@@ -22,23 +22,23 @@ class ECS {
         return map?.components?.player?.map(comp => comp?.playerId)
     }
 
-    findPlayer(maps, playerId) {
-        let res;
+    getPlayer(maps, playerId) {
         const keys = Object.keys(maps);
         const keysLength = keys.length;
         for (let i = 0; i < keysLength; i++) {
-            const map = maps[keys[i]];
-            const mapEntities = map.entities;
-            const mapEntitiesLength = mapEntities.length;
-            for (let j = 0; j < mapEntitiesLength; j++) {
-                if (this.getComponent(map, j, "player")?.playerId === playerId) {
-                    res = { map: map, entity: mapEntities[j] };
-                    i = keysLength;
-                    j = mapEntitiesLength;
-                }
+            let map = maps[keys[i]];
+            return { map: map, entity: map.entities[this.getPlayerComponentByPlayerId(map, playerId).eId] };
+        }
+    }
+
+    getPlayerComponentByPlayerId(map, playerId) {
+        const playerComponents = this.getComponents(map, "player");
+        const playerComponentsLength = playerComponents.length;
+        for (let i = 0; i < playerComponentsLength; i++) {
+            if (playerComponents[i].playerId === playerId) {
+                return playerComponents[i];
             }
         }
-        return res;
     }
 }
 
