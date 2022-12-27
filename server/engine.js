@@ -66,12 +66,12 @@ class Engine {
                 let playerComponent = this.ecs.getPlayerComponentByPlayerId(map, playerId);
                 let physicsComponent = this.ecs.getComponent(map, playerComponent.eId, "physics");
 
-                let updateRadius = 1;
-                if (map.frameCount % 2 === 0) { updateRadius *= 2; }
-                if (map.frameCount % 4 === 0) { updateRadius *= 2; }
-                if (map.frameCount % 8 === 0) { updateRadius *= 2; }
-                if (map.frameCount % 16 === 0) { updateRadius *= 2; }
-                if (map.frameCount % 32 === 0) { updateRadius *= 2; }
+                let updateRadius = 1000;
+                // if (map.frameCount % 2 === 0) { updateRadius *= 100; }
+                // if (map.frameCount % 4 === 0) { updateRadius *= 200; }
+                // if (map.frameCount % 8 === 0) { updateRadius *= 400; }
+                // if (map.frameCount % 16 === 0) { updateRadius *= 800; }
+                // if (map.frameCount % 32 === 0) { updateRadius *= 1600; }
                 if (map.frameCount % 64 === 0) { updateRadius = 10000; }
 
                 this.physics.getChangedComponentsDecomposed(map, physicsComponent, [updateRadius, updateRadius, updateRadius]).forEach(({ eId, decomposed }) => {

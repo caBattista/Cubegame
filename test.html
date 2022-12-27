@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="./web/three/three.js"></script>
+    <script>
+        const createHTML = (htmlString, parent, siblings = 0) => {
+            const div = document.createElement('div');
+            div.innerHTML = htmlString.replace(/(\r\n|\n|\r)/gm, "").replace(/  +/g, ' ').trim();
+            const children = Array.from(div.children);
+            if (parent) {
+                children.forEach(child => {
+                    parent.appendChild(child);
+                });
+            }
+            return siblings === "all" ? children : children[siblings];
+        }
+
+        function drawPoint(point) {
+            createHTML(`<div class="interpolationPoint" style="left:${point.x}px;top:${point.y}px;"></div>`, document.body);
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        .dataPoint {
+            background-color: black;
+            width: 20px;
+            height: 20px;
+            border-radius: 20px;
+            position: absolute;
+            opacity: 0.8;
+        }
+
+        .interpolationPoint {
+            background-color: rgb(34, 255, 0);
+            width: 20px;
+            height: 20px;
+            border-radius: 20px;
+            position: absolute;
+            opacity: 0.8;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        let interval = 1000 / 100;
+        let divider = 10;
+
+        let prevDataPoint;
+        let prevControlPoint;
+        let interpolationPoints = [];
+
+        document.addEventListener("click", (ev) => { interpolateToPoint(new THREE.Vector2(ev.pageX - 10, ev.pageY - 10)); });
+
+        function interpolateToPoint(currentPoint) {
+            if (!prevDataPoint) {
+                prevControlPoint = currentPoint;
+                prevDataPoint = currentPoint;
+                interpolationPoints = [currentPoint];
+            } else {
+                prevControlPoint = prevDataPoint.clone().add(new THREE.Vector2().subVectors(prevDataPoint, prevControlPoint).multiplyScalar(0.5));
+                interpolationPoints = new THREE.QuadraticBezierCurve(prevDataPoint, prevControlPoint, currentPoint).getSpacedPoints(divider).slice(0, -1);
+                prevDataPoint = currentPoint;
+            }
+        }
+
+        //render loop
+        setInterval(() => { if (interpolationPoints.length > 0) { drawPoint(interpolationPoints.shift()); } }, interval);
+    </script>
+</body>
+
+</html>

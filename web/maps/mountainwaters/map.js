@@ -115,7 +115,7 @@ class Map2 {
         this.map.entities[++this.currentEId] = { graphics: gid };
         this.map.components.graphics[gid] = { gObj: this.currentGId };
 
-        let instances = 20000;
+        let instances = 2000;
         const dimensions = [1, 1, 1];
         const geometry = new THREE.BoxBufferGeometry(...dimensions);
         const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
@@ -135,9 +135,9 @@ class Map2 {
 
             //create instances
             position.set(
-                (Math.random() - 0.5) * 500,
+                (Math.random() - 0.5) * 1000,
                 (Math.random()) * 500,
-                (Math.random() - 0.5) * 500);
+                (Math.random() - 0.5) * 1000);
             quaternion.setFromEuler(rotation);
             matrix.compose(position, quaternion, scale);
             mesh.setMatrixAt(i, matrix);
@@ -152,7 +152,7 @@ class Map2 {
                 eId: this.currentEId,
                 dimensions: dimensions,
                 matrix: matrix.toArray(),
-                mass: 10,
+                mass: 100,
                 speed: [
                     (Math.random() - 0.5) * 2,
                     (Math.random() - 0.5) * 2,

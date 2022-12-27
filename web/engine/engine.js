@@ -235,6 +235,35 @@ class Engine {
         };
     }
 
+    // moveSmoothed(data, object) {
+    //     //calculate step values (distance to move in steps between frames)
+    //     let step = {};
+    //     if (data.p !== undefined) {
+    //         step.position = this.vectorFromXYZ(data.p)
+    //             .sub(object.position).divideScalar(this.settings.smoothing.divider);
+    //     }
+    //     if (data.r !== undefined) {//euler
+    //         step.rotation = this.vectorFromXYZ(data.r)
+    //             .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
+    //     }
+
+    //     this.settings.smoothing.smoothingHandlers[object.uuid] = {
+    //         index: this.settings.smoothing.divider - 1,
+    //         handler: (obj) => {
+    //             if (obj.index <= 0) {
+    //                 if (step.position !== undefined) { this.vectorFromXYZ(data.p, object.position); }
+    //                 if (step.rotation !== undefined) { object.rotation.setFromVector3(data.r); }
+    //             } else {
+    //                 if (step.position !== undefined) { object.position.add(step.position); }
+    //                 if (step.rotation !== undefined) {
+    //                     object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+    //                 }
+    //             }
+    //             obj.index--;
+    //         }
+    //     };
+    // }
+
     vectorFromXYZ(xyz, vector = new THREE.Vector3()) { return vector.set(xyz.x, xyz.y, xyz.z); }
 }
 

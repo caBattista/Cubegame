@@ -4,7 +4,7 @@ import SpacialHashGrid from './spacialHashGrid.js';
 class Pysics {
 
     constructor(stats) {
-        this.grid = new SpacialHashGrid([[-500.0, -500.0, -500.0,], [500.0, 500.0, 500.0]], [100, 100, 100]);
+        this.grid = new SpacialHashGrid([[-5000.0, -5000.0, -5000.0,], [5000.0, 5000.0, 5000.0]], [100, 100, 100]);
         this.stats = stats
         this.stats.addMetric("gravity");
     }
@@ -33,7 +33,7 @@ class Pysics {
         const compLength = components.length;
         for (let i = 0; i < compLength; i++) {
             const component = components[i];
-            //this.gravitySpacial(component);
+            this.gravitySpacial(component);
             if (component.speed.length() !== 0) {
                 //this.collisionIntersect(component);
                 //this.airResistance(component);//buggy
@@ -61,7 +61,7 @@ class Pysics {
 
     //########################################## changes ##########################################
 
-    getChangedComponentsDecomposed(map, component, far = [200, 200, 200]) {
+    getChangedComponentsDecomposed(map, component, far = [2000, 2000, 2000]) {
         let componentsInVacinity = [];
         if (far[0] >= this.grid._gridDimensions[1][0] * 2) {
             componentsInVacinity = map.components.physics;
@@ -191,7 +191,7 @@ class Pysics {
         component.speed.negate();
     }
 
-    mapBounds(component, bounds = 500) {
+    mapBounds(component, bounds = 1000) {
         let position = new Vector3().setFromMatrixPosition(component.matrix);
         if ((position.x > bounds || position.x < -bounds) ||
             (position.y > bounds || position.y < -bounds) ||
