@@ -11,8 +11,9 @@ class Engine {
 
         // ############# settings #############
         this.settings = settings;
-        this.settings.interval = 1000 / 30;
-        this.settings.smoothing = { divider: Math.round((1000 / 30) / (this.settings.interval)), smoothingHandlers: {} };
+        this.settings.interval = 1000 / 120;
+        this.settings.smoothing = { divider: 14, smoothingHandlers: {} };
+        console.log(this.settings.smoothing);
         console.log(this.settings);
 
         // ############# characters #############
@@ -142,6 +143,14 @@ class Engine {
             this.objectLoader.setResourcePath(`maps/${this.mapSettings.type}/textures/`);
             let parsedObject = this.objectLoader.parse(object);
             this.scene.add(parsedObject);
+            if (parsedObject.isInstancedMesh === true) {
+                parsedObject.userData.instances = [];
+                for (let i = 0; i < parsedObject.count; i++) {
+                    parsedObject.userData.instances.push({
+                        smoothing: {}
+                    });
+                }
+            }
         });
     }
 
@@ -151,37 +160,37 @@ class Engine {
             if (objectChange !== undefined) {
                 if (object.isInstancedMesh === true) {
                     let objectChangeLength = objectChange.length;
-                    let matrix = new THREE.Matrix4();
-                    let position = new THREE.Vector3();
-                    let quaternion = new THREE.Quaternion();
-                    let euler = new THREE.Euler();
-                    let scale = new THREE.Vector3();
-                    let color = new THREE.Color();
                     for (let i = 0; i < objectChangeLength; i++) {
-                        const instnanceChange = objectChange[i];
-                        if (instnanceChange.p !== undefined || instnanceChange.r !== undefined || instnanceChange.s !== undefined) {
-                            object.getMatrixAt(instnanceChange.i, matrix);
-                            matrix.decompose(position, quaternion, scale);
-                            if (instnanceChange.p !== undefined) { position.fromArray(instnanceChange.p); }
-                            if (instnanceChange.r !== undefined) { quaternion.setFromEuler(euler.fromArray(instnanceChange.r)); }
-                            if (instnanceChange.s !== undefined) { scale.fromArray(instnanceChange.s); }
-                            matrix.compose(position, quaternion, scale);
-                            object.setMatrixAt(instnanceChange.i, matrix);
-                            object.instanceMatrix.needsUpdate = true;
-                        }
-                        if (instnanceChange.c !== undefined) { object.setColorAt(instnanceChange.i, color.fromArray(instnanceChange.c)); object.instanceColor.needsUpdate = true; }
-                        if (instnanceChange.i === this.players[this.clientId]?.instanceId) {
-                            this.camDummy.rotation.setFromQuaternion(quaternion);
-                            this.camDummy.position.set(position.x, position.y, position.z);
-                            this.camDummy.updateMatrixWorld(true);
-                        }
+                        this.moveInstancedSmoothed(objectChange[i], object);
+                        //this.updateInstance(object, objectChange[i]);
                     }
                 }
-                // else {
-                //     this.moveSmoothed(objectChange[0], object);
-                // }
             }
         });
+    }
+
+    updateInstance(object, instnanceChange) {
+        let matrix = new THREE.Matrix4();
+        let position = new THREE.Vector3();
+        let quaternion = new THREE.Quaternion();
+        let euler = new THREE.Euler();
+        let scale = new THREE.Vector3();
+        let color = new THREE.Color();
+        if (instnanceChange.p !== undefined || instnanceChange.r !== undefined || instnanceChange.s !== undefined) {
+            matrix.decompose(position, quaternion, scale);
+            if (instnanceChange.p !== undefined) { position.fromArray(instnanceChange.p); }
+            if (instnanceChange.r !== undefined) { quaternion.setFromEuler(euler.fromArray(instnanceChange.r)); }
+            if (instnanceChange.s !== undefined) { scale.fromArray(instnanceChange.s); }
+            matrix.compose(position, quaternion, scale);
+            object.setMatrixAt(instnanceChange.i, matrix);
+            object.instanceMatrix.needsUpdate = true;
+        }
+        if (instnanceChange.c !== undefined) { object.setColorAt(instnanceChange.i, color.fromArray(instnanceChange.c)); object.instanceColor.needsUpdate = true; }
+        if (instnanceChange.i === this.players[this.clientId]?.instanceId) {
+            this.camDummy.rotation.setFromQuaternion(quaternion);
+            this.camDummy.position.set(position.x, position.y, position.z);
+            this.camDummy.updateMatrixWorld(true);
+        }
     }
 
     removeObjects(objectIds) {
@@ -206,34 +215,71 @@ class Engine {
         if (data.r !== undefined) { object.rotation.setFromVector3(this.vectorFromXYZ(data.r)); }
     }
 
-    moveSmoothed(data, object) {
-        //calculate step values (distance to move in steps between frames)
-        let step = {};
+    moveInstancedSmoothed(data, object) {
         if (data.p !== undefined) {
-            step.position = this.vectorFromXYZ(data.p)
-                .sub(object.position).divideScalar(this.settings.smoothing.divider);
-        }
-        if (data.r !== undefined) {//euler
-            step.rotation = this.vectorFromXYZ(data.r)
-                .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
-        }
-
-        this.settings.smoothing.smoothingHandlers[object.uuid] = {
-            index: this.settings.smoothing.divider - 1,
-            handler: (obj) => {
-                if (obj.index <= 0) {
-                    if (step.position !== undefined) { this.vectorFromXYZ(data.p, object.position); }
-                    if (step.rotation !== undefined) { object.rotation.setFromVector3(data.r); }
-                } else {
-                    if (step.position !== undefined) { object.position.add(step.position); }
-                    if (step.rotation !== undefined) {
-                        object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
-                    }
-                }
-                obj.index--;
+            var position = new THREE.Vector3().fromArray(data.p);
+            var smoothing = object.userData.instances[data.i].smoothing;
+            var interpolationPoints = [];
+            if (!smoothing.prevDataPoint) {
+                smoothing.prevControlPoint = position;
+                smoothing.prevDataPoint = position;
+                interpolationPoints = [position];
+            } else {
+                smoothing.prevControlPoint = smoothing.prevDataPoint.clone().add(
+                    new THREE.Vector3().subVectors(smoothing.prevDataPoint, smoothing.prevControlPoint).multiplyScalar(0.7)
+                );
+                interpolationPoints = new THREE.QuadraticBezierCurve3(position, smoothing.prevControlPoint, smoothing.prevDataPoint)
+                    .getSpacedPoints(this.settings.smoothing.divider).slice(0, -1);//remove fist point (is last in array)
+                //console.log(position,smoothing.prevDataPoint, interpolationPoints);
+                smoothing.prevDataPoint = position;
             }
-        };
+            object.userData.instances[data.i].smoothing = smoothing;
+
+            this.settings.smoothing.smoothingHandlers[object.uuid + "_" + data.i] = {
+                index: interpolationPoints.length - 1,
+                interpolationPoints: interpolationPoints,
+                handler: (obj) => {
+                    this.updateInstance(object, {
+                        i: data.i,
+                        p: obj.interpolationPoints[obj.index]?.toArray(),
+                        r: data.r,
+                        s: data.s,
+                        c: data.c
+                    });
+                    obj.index--;
+                }
+            };
+        }
     }
+
+    // moveSmoothed(data, object) {
+    //     //calculate step values (distance to move in steps between frames)
+    //     let step = {};
+    //     if (data.p !== undefined) {
+    //         step.position = this.vectorFromXYZ(data.p)
+    //             .sub(object.position).divideScalar(this.settings.smoothing.divider);
+    //     }
+    //     if (data.r !== undefined) {//euler
+    //         step.rotation = this.vectorFromXYZ(data.r)
+    //             .sub(this.vectorFromXYZ(object.rotation)).divideScalar(this.settings.smoothing.divider);
+    //     }
+
+    //     this.settings.smoothing.smoothingHandlers[object.uuid] = {
+    //         index: this.settings.smoothing.divider - 1,
+    //         handler: (obj) => {
+    //             if (obj.index <= 0) {
+    //                 if (step.position !== undefined) { this.vectorFromXYZ(data.p, object.position); }
+    //                 if (step.rotation !== undefined) { object.rotation.setFromVector3(data.r); }
+    //             } else {
+    //                 if (step.position !== undefined) { object.position.add(step.position); }
+    //                 if (step.rotation !== undefined) {
+    //                     object.rotation.setFromVector3(this.vectorFromXYZ(object.rotation).add(step.rotation));
+    //                 }
+    //             }
+    //             obj.index--;
+    //         }
+    //     };
+    // }
 
     // moveSmoothed(data, object) {
     //     //calculate step values (distance to move in steps between frames)

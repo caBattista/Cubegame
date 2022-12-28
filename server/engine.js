@@ -85,7 +85,7 @@ class Engine {
             })
             map.frameCount++;
             this.stats.end("loop");
-        }, 30); //-> 30fps more or less 31
+        }, 100); //-> 30fps more or less 31
         console.log("\x1b[35m%s\x1b[0m", "ENGINE:", "STARTED MAP", mapId);
     }
 

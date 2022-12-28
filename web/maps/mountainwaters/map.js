@@ -104,18 +104,18 @@ class Map2 {
             });
         }
 
-        const meshFloor = new THREE.Mesh(new THREE.PlaneGeometry(250, 250, 10, 10), material);
-        meshFloor.name = "floor";
-        meshFloor.rotation.x -= Math.PI / 2;
-        meshFloor.receiveShadow = settings.graphics_quality === "High";
+        // const meshFloor = new THREE.Mesh(new THREE.PlaneGeometry(250, 250, 10, 10), material);
+        // meshFloor.name = "floor";
+        // meshFloor.rotation.x -= Math.PI / 2;
+        // meshFloor.receiveShadow = settings.graphics_quality === "High";
 
-        meshFloor.updateMatrixWorld(true);
-        this.map.graphicsObjects[++this.currentGId] = meshFloor.toJSON();
-        gid = this.map.components.graphics.length;
-        this.map.entities[++this.currentEId] = { graphics: gid };
-        this.map.components.graphics[gid] = { gObj: this.currentGId };
+        // meshFloor.updateMatrixWorld(true);
+        // this.map.graphicsObjects[++this.currentGId] = meshFloor.toJSON();
+        // gid = this.map.components.graphics.length;
+        // this.map.entities[++this.currentEId] = { graphics: gid };
+        // this.map.components.graphics[gid] = { gObj: this.currentGId };
 
-        let instances = 2000;
+        let instances = 1000;
         const dimensions = [1, 1, 1];
         const geometry = new THREE.BoxBufferGeometry(...dimensions);
         const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: false }), instances);
@@ -154,9 +154,9 @@ class Map2 {
                 matrix: matrix.toArray(),
                 mass: 100,
                 speed: [
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 2]
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 20,
+                    (Math.random() - 0.5) * 20]
             };
         }
 

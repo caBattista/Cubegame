@@ -37,7 +37,7 @@ class Pysics {
             if (component.speed.length() !== 0) {
                 //this.collisionIntersect(component);
                 //this.airResistance(component);//buggy
-                //this.airResistanceBasic(component);
+                this.airResistanceBasic(component);
                 this.mapBounds(component);
             }
             this.updatePosition(component);
