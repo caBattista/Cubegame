@@ -5,6 +5,7 @@ class WSServer {
   constructor(config, server) {
 
     this.config = config;
+    this.crypto = crypto;
     //config.compression = undefined;
 
     this.clients = {};

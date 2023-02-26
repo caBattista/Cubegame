@@ -23,7 +23,7 @@ class Ws {
                 if (this.msgCount % 30 === 0 && msg.action === "updateObjects" && msg.topic === "map") {
                     console.log("WS GOT: ", this.msgCount, msg);
                 }
-                const handler = this.handlers[msg.topic] ? this.handlers[msg.topic][msg.action] : null;
+                const handler = this.handlers[msg.topic]?.[msg.action];
                 if (typeof handler === "function") { handler(msg.status, msg.data); }
                 else { console.log(`WS: Message handler for topic '${msg.topic}' action '${msg.action}' not found`) }
             };
@@ -47,10 +47,10 @@ class Ws {
                 if (status === "success") {
                     //set compression
                     this.compression = data.compression;
-                    //set up ping
+                    //start up ping to keep connection open
                     this.startPing();
-                    res(data.clientId)
-                } else { rej(data) }
+                    res(true);
+                } else { rej(false) }
             });
         });
     }
@@ -81,6 +81,7 @@ class Ws {
         return new Promise((res, rej) => {
             //register handler
             this.on(topic, action, (status, data) => {
+                console.log("request", data);
                 this.removeHandler(topic, action);
                 status === "success" ? res(data) : rej(data);
             })

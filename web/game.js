@@ -12,35 +12,36 @@ class Game {
 
     async start() {
         //Login (Websocket is started and added to Game after submit)
-        const Login = await this.loader.load("/ui/login/login", 1);
-        new Login().login(async (topic, action, data) => {
-            console.log(this)
-            //start websocket
-            const Ws = await this.loader.load("../../util/ws");
-            this.ws = new Ws(this);
-            await this.ws.connect();
-            this.ws.request(topic, action, data)
-                .then(data => {
-                    document.body.innerHTML = "";
-                    document.cookie = "clientId=" + data;
-                    this.clientId = data;
-                    this.startMainMenu();
-                })
-                .catch(data => {
-                    this.ws.close(4000, data);
-                    el.previousSibling.textContent = data;
-                });
-        });
-        this.loader.unload("ui/login/login");
+        // const Login = await this.loader.load("/ui/login/login", 1);
+        // new Login().login(async (topic, action, data) => {
+        //     console.log(this);
+        //     //start websocket
+        //     const Ws = await this.loader.load("../../util/ws");
+        //     this.ws = new Ws(this);
+        //     await this.ws.connect();
+        //     this.ws.request(topic, action, data)
+        //         .then(data => {
+        //             console.log("data", data);
+        //             document.body.innerHTML = "";
+        //             document.cookie = "clientId=" + data;
+        //             this.clientId = data;
+        //             this.startMainMenu();
+        //         })
+        //         .catch(data => {
+        //             this.ws.close(4000, data);
+        //             el.previousSibling.textContent = data;
+        //         });
+        // });
+        // this.loader.unload("ui/login/login");
 
         // //autologin
-        // const Ws = await this.loader.load("../../util/ws");
-        // this.ws = new Ws(this);
-        // await this.ws.connect();
-        // this.clientId = await this.ws.request("user", "login", { username: "test", password: "test" })
-        // document.body.innerHTML = "";
-        // document.cookie = "clientId=" + this.clientId;
-        // this.startMainMenu();
+        const Ws = await this.loader.load("../../util/ws");
+        this.ws = new Ws(this);
+        await this.ws.connect();
+        this.clientId = await this.ws.request("user", "register", { username: "test", password: "test" })
+        document.body.innerHTML = "";
+        document.cookie = "clientId=" + this.clientId;
+        this.startMainMenu();
     }
 
     async startMainMenu() {

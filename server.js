@@ -28,7 +28,7 @@ import { Worker } from 'worker_threads'
   //#################################### Init main components ####################################
 
   //Database init
-  const db = new Database(heroku ? config.database : config.database_dev);
+  const db = new Database(/*heroku ? config.database :*/ config.database_dev);
   await db.init();
 
   //Webserver init
@@ -175,7 +175,7 @@ import { Worker } from 'worker_threads'
     const dbRes4 = await db.addCharacter(client.id, config.user_default_character.display_name);
     if (dbRes4 !== true) { send("error", "Could not add character"); return; }
 
-    send("success");
+    send("success", client.id);
   });
 
   //User delete

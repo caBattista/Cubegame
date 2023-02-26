@@ -4,7 +4,8 @@ import SpacialHashGrid from './spacialHashGrid.js';
 class Pysics {
 
     constructor(stats) {
-        this.grid = new SpacialHashGrid([[-5000.0, -5000.0, -5000.0,], [5000.0, 5000.0, 5000.0]], [100, 100, 100]);
+        this.grid = new SpacialHashGrid([[-500.0, -500.0, -500.0,], [500.0, 500.0, 500.0]], [20, 20, 20]);
+        this.grid.addCenterPositionToCells();
         this.stats = stats
         this.stats.addMetric("gravity");
     }
@@ -33,19 +34,25 @@ class Pysics {
         const compLength = components.length;
         for (let i = 0; i < compLength; i++) {
             const component = components[i];
-            this.gravitySpacial(component);
-            if (component.speed.length() !== 0) {
-                //this.collisionIntersect(component);
-                //this.airResistance(component);//buggy
-                this.airResistanceBasic(component);
-                this.mapBounds(component);
+            if (component.disable !== true || true) {
+                this.gravitySpacial(component);
+                if (component.speed.length() !== 0) {
+                    //this.collisionIntersect(component);
+                    //this.airResistance(component);//buggy
+                    this.airResistanceBasic(component);
+                    this.mapBounds(component);
+                }
             }
+            //needs to be outside of if because of rotation
             this.updatePosition(component);
 
-            //update spacial hash grid
-            // component.sphgClient.position = new Vector3().setFromMatrixPosition(component.matrix).toArray();
-            this.grid.UpdateComponent(component);
+            if (component.speed.length() !== 0) {
+                //update spacial hash grid
+                //component.sphgClient.position = new Vector3().setFromMatrixPosition(component.matrix).toArray();
+                this.grid.UpdateComponent(component);
+            }
         }
+        // this.grid.printGrid();
     }
 
     //########################################## updatePosition ##########################################
@@ -120,22 +127,42 @@ class Pysics {
 
     //########################################## gravity ##########################################
 
-    gravitySpacial(component, far = new Vector3(10, 10, 10), near = 2) {//.18
-        let componentsInVacinity = this.grid.FindNear(component, far.toArray());
-        let componentsInVacinityLength = componentsInVacinity.length;
+    //TO DO: Use spacial hash grid to combine far away objects as one with center of mass
+    // gravitySpacial(component, far = new Vector3(10, 10, 10), near = 2) {//.18
+    //         let componentsInVacinity = this.grid.FindNear(component, far.toArray());
+    //         let componentsInVacinityLength = componentsInVacinity.length;
 
+    //         //this.stats.start("gravity");
+    //         let position = new Vector3().setFromMatrixPosition(component.matrix);
+    //         for (let i = 0; i < componentsInVacinityLength; i++) {
+    //             let position2 = new Vector3().setFromMatrixPosition(componentsInVacinity[i].matrix);
+    //             let distance = position.distanceTo(position2);
+    //             if (distance > near) {
+    //                 //revesing these will attract or oppse
+    //                 const directionVector = new Vector3().subVectors(position2, position);//.011
+    //                 const forceMagnitude = (component.mass * componentsInVacinity[i].mass) / (distance * distance);
+    //                 component.force.add(directionVector.normalize().multiplyScalar(forceMagnitude * 0.3));//0.02
+    //             }
+    //         }
+    //     //this.stats.end("gravity");
+    // }
+
+    gravitySpacial(component, far = new Vector3(10, 10, 10), near = 2) {//.18
         //this.stats.start("gravity");
         let position = new Vector3().setFromMatrixPosition(component.matrix);
-        for (let i = 0; i < componentsInVacinityLength; i++) {
-            let position2 = new Vector3().setFromMatrixPosition(componentsInVacinity[i].matrix);
-            let distance = position.distanceTo(position2);
-            if (distance > near) {
+        let currentCell = this.grid.getCellOfPosition(position.toArray());
+        this.grid.iterateCells(cell => {
+            if(cell.mass !== 0 && currentCell !== cell){
+                let cellCenterPosition = new Vector3().fromArray(cell.centerPosition);
+                let distance = position.distanceTo(cellCenterPosition);
+                // if (distance > near) {
                 //revesing these will attract or oppse
-                const directionVector = new Vector3().subVectors(position2, position);//.011
-                const forceMagnitude = (component.mass * componentsInVacinity[i].mass) / (distance * distance);
+                const directionVector = new Vector3().subVectors(cellCenterPosition, position);//.011
+                const forceMagnitude = (component.mass * cell.mass) / (distance * distance);
                 component.force.add(directionVector.normalize().multiplyScalar(forceMagnitude * 0.3));//0.02
+                // }
             }
-        }
+        });
         //this.stats.end("gravity");
     }
 

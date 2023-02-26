@@ -41,14 +41,17 @@ class SpacialHashGrid {
     constructor(gridDimensions, cellDimensions) {
         const [x, y, z] = cellDimensions;
         //null will be the nodes(linked list)
-        this._cells = [...Array(x)].map(_ => [...Array(y)].map(_ => ([...Array(z)].map(_ => (undefined)))));//Empty array of arrays //dont need to check if cell exists anymore
-        this._cellDimensions = cellDimensions;
-        this._gridDimensions = gridDimensions;
+        this._cells = [...Array(x)].map(_ => [...Array(y)].map(_ => ([...Array(z)].map(_ => ({
+            mass: 0,
+            llHead: undefined
+        })))));//Empty array of arrays //dont need to check if cell exists anymore
+        this._cellDimensions = cellDimensions;// Ammount of cells in total bounds! Not dimensions of individual cell
+        this._gridDimensions = gridDimensions;// Total dimensions
         this._queryIds = 0;
     }
 
     _GetCellIndex(position) {
-        //                 position relative to width                 /    width of hash grid  => value between 0 and 1
+        //                 position relative to width                 /    total width of hash grid  => value between 0 and 1
         const x = math.sat((position[0] - this._gridDimensions[0][0]) / (this._gridDimensions[1][0] - this._gridDimensions[0][0]));
         const y = math.sat((position[1] - this._gridDimensions[0][1]) / (this._gridDimensions[1][1] - this._gridDimensions[0][1]));
         const z = math.sat((position[2] - this._gridDimensions[0][2]) / (this._gridDimensions[1][2] - this._gridDimensions[0][2]));
@@ -90,20 +93,22 @@ class SpacialHashGrid {
                 for (let z = ciMin[2], zn = ciMax[2]; z <= zn; ++z) {
                     const yi = y - ciMin[1];//so yi starts at 0
 
-                    const head = {//new (head)node in linked list
+                    const llHead = {//new (llHead)node in linked list
                         next: null,
                         prev: null,
                         component: component,
                     };
 
-                    nodes[xi][yi].push(head);//goes into component
+                    nodes[xi][yi].push(llHead);//goes into component
 
-                    head.next = this._cells[x][y][z];//gets the head (first node in linked list from cell) and sets new head next to old head
-                    if (this._cells[x][y][z]) {
-                        this._cells[x][y][z].prev = head;//set prev of old head to new head if exists
+                    var currentCell = this._cells[x][y][z];
+                    llHead.next = currentCell.llHead;//gets the llHead (first node in linked list from cell) and sets new llHead next to old llHead
+                    if (currentCell.llHead) {
+                        currentCell.prev = llHead;//set prev of old llHead to new llHead if exists
                     }
 
-                    this._cells[x][y][z] = head;//new head
+                    currentCell.llHead = llHead;//new llHead
+                    this.updateGravityForCell(currentCell, component, 1);
                 }
             }
         }
@@ -154,11 +159,10 @@ class SpacialHashGrid {
         for (let x = ciMin[0], xn = ciMax[0]; x <= xn; ++x) {
             for (let y = ciMin[1], yn = ciMax[1]; y <= yn; ++y) {
                 for (let z = ciMin[2], zn = ciMax[2]; z <= zn; ++z) {
-                    let head = this._cells[x][y][z];
-
-                    while (head) {
-                        const v = head.component;
-                        head = head.next;
+                    let llHead = this._cells[x][y][z].llHead;
+                    while (llHead) {
+                        const v = llHead.component;
+                        llHead = llHead.next;
 
                         if (v._queryId != queryId) {//remove duplicates
                             v._queryId = queryId;
@@ -191,7 +195,8 @@ class SpacialHashGrid {
                     }
 
                     if (!node.prev) {
-                        this._cells[x][y][z] = node.next;
+                        this._cells[x][y][z].llHead = node.next;
+                        this.updateGravityForCell(this._cells[x][y][z], component, -1);
                     }
                 }
             }
@@ -200,6 +205,74 @@ class SpacialHashGrid {
         component.cells.min = null;
         component.cells.max = null;
         component.cells.nodes = null;
+    }
+
+
+    //for gravity #####################################################
+
+    getCellOfPosition(position) {
+        const cellIndex = this._GetCellIndex(position);
+        const x = cellIndex[0];
+        const y = cellIndex[1];
+        const z = cellIndex[2];
+        return this._cells[x][y][z];
+    }
+
+    addCenterPositionToCells() {
+        this._cellSize = [
+            (this._gridDimensions[1][0] - this._gridDimensions[0][0]) / this._cellDimensions[0],
+            (this._gridDimensions[1][1] - this._gridDimensions[0][1]) / this._cellDimensions[1],
+            (this._gridDimensions[1][2] - this._gridDimensions[0][2]) / this._cellDimensions[2]
+        ]
+        for (let x = 0; x < this._cells.length; x++) {
+            for (let y = 0; y < this._cells[x].length; y++) {
+                for (let z = 0; z < this._cells[x][y].length; z++) {
+                    //celldimensions times the index plus half the cell index
+                    //because index starts at 0
+                    this._cells[x][y][z].centerPosition = [
+                        (this._cellSize[0] * x) + (this._cellSize[0] / 2),
+                        (this._cellSize[1] * y) + (this._cellSize[1] / 2),
+                        (this._cellSize[2] * z) + (this._cellSize[2] / 2)
+                    ]
+                }
+            }
+        }
+    }
+
+    updateGravityForCell(cell, component, addSubtr) {
+        cell.mass += component.mass * addSubtr;
+        // console.log("updateGravityForCell", cell.mass, component.mass, addSubtr );
+
+    }
+
+    iterateCells(callback) {
+        for (let x = 0; x < this._cells.length; x++) {
+            for (let y = 0; y < this._cells[x].length; y++) {
+                for (let z = 0; z < this._cells[x][y].length; z++) {
+                    callback(this._cells[x][y][z]);
+                }
+            }
+        }
+    }
+
+    //DEBUG
+
+    printGrid() {
+        this.printWait = this.printWait === undefined ? 0 : this.printWait + 1;
+        if (this.printWait < 30) { return; }
+        this.printWait = 0;
+        let str = "";
+        for (let x = 0; x < this._cells.length; x++) {
+            for (let y = 0; y < this._cells[x].length; y++) {
+                for (let z = 0; z < this._cells[x][y].length; z++) {
+                    let cell = this._cells[x][y][z];
+                    str += ` cp ${cell.centerPosition} m ${cell.mass} ###`;
+                }
+                str += "\n";
+            }
+            str += "\n";
+        }
+        console.log(str);
     }
 }
 

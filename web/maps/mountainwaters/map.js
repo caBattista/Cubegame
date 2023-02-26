@@ -135,9 +135,9 @@ class Map2 {
 
             //create instances
             position.set(
-                (Math.random() - 0.5) * 1000,
-                (Math.random()) * 500,
-                (Math.random() - 0.5) * 1000);
+                (Math.random() - 0.5) * 500,
+                (Math.random()) * 250,
+                (Math.random() - 0.5) * 500);
             quaternion.setFromEuler(rotation);
             matrix.compose(position, quaternion, scale);
             mesh.setMatrixAt(i, matrix);
@@ -153,10 +153,10 @@ class Map2 {
                 dimensions: dimensions,
                 matrix: matrix.toArray(),
                 mass: 100,
-                speed: [
+                speed: [ 0,0,0
+                    /*(Math.random() - 0.5) * 20,
                     (Math.random() - 0.5) * 20,
-                    (Math.random() - 0.5) * 20,
-                    (Math.random() - 0.5) * 20]
+                (Math.random() - 0.5) * 20*/]
             };
         }
 
