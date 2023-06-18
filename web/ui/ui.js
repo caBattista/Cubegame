@@ -1,7 +1,7 @@
 const createHTML = (htmlString, parent, siblings = 0) => {
-    const div = document.createElement('div');
-    div.innerHTML = htmlString.replace(/(\r\n|\n|\r)/gm, "").replace(/  +/g, ' ').trim();
-    const children = Array.from(div.children);
+    const template = document.createElement('template');
+    template.innerHTML = htmlString.replace(/(\r\n|\n|\r)/gm, "").replace(/  +/g, ' ').trim();
+    const children = Array.from(template.content.children);
     if (parent) {
         children.forEach(child => {
             parent.appendChild(child);
