@@ -14,6 +14,7 @@ It should combine the concepts of successfull broser games like agar.io and r/pl
 ## Features
 
 It uses a physics simulaiton of gravity and a collision system.
+
 ![image](https://github.com/user-attachments/assets/ee597f88-439e-4fef-a4ae-11f02557da14)
 
 ## Architecture
