@@ -1,14 +1,15 @@
 ![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)
 
-# Goal of the game
+# Ideas behind the game
 
 The goal of this online multiplayer game is to play a partcle in a particle system.
 You will be able to combine your particle with other free floating ones to unlock new abilities.
+It should combine the concepts of successfull broser games like agar.io and r/place
 
 #### Possible Abilities
 + Diferent types of shooting (Single, Multy)
-+ Manipulation of gravity fields (Traktor field, Repelling field)
-+ Manipulation of time relative to the other users (Slowing them down or making them faster)
++ Manipulation of gravity fields (Traktor field for gathering particles, Repelling field for defending against other attacks)
++ Manipulation of time relative to the other user
 
 ## Features
 
