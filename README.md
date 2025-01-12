@@ -5,6 +5,11 @@
 The goal of this online multiplayer game is to play a partcle in a particle system.
 You will be able to combine your particle with other free floating ones to unlock new abilities.
 
+#### Possible Abilities
++ Diferent types of shooting (Single, Multy)
++ Manipulation of gravity fields (Traktor field, Repelling field)
++ Manipulation of time relative to the other users (Slowing them down or making them faster)
+
 ## Features
 
 It uses a physics simulaiton of gravity and a collision system.
