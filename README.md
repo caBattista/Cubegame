@@ -7,7 +7,7 @@ You will be able to combine your particle with other free floating ones to unloc
 
 ## Features
 
-It uses a physics simulaiton of gravity.
+It uses a physics simulaiton of gravity and a collision system.
 ![image](https://github.com/user-attachments/assets/ee597f88-439e-4fef-a4ae-11f02557da14)
 
 ## Architecture
