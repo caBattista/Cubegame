@@ -28,6 +28,7 @@ It uses a physics simulaiton of gravity and a collision system.
   + It uses it's own System for lazy loading and ui rendering. (No Frameworks such as Rect or Angular were used)
 + It uses websockets as it's main way of comunicaiton.
   +  Spacial Hashgrids are used in an attemt to reduce the traffic over the websockets.
++ Containers hosted on heroku with a shared Postgress database have been tested
 
 ## State of the game
 
