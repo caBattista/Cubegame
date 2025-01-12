@@ -1,4 +1,4 @@
-This is a game written purely in javascirpt using Node.js and three.js as its only dependancies.
+![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)
 
 # Goal of the game
 
@@ -7,8 +7,10 @@ You will be able to combine your particle with other free floating ones to unloc
 
 ## Features
 
-It uses a simulaiton of gravity.
+It uses a physics simulaiton of gravity.
 
-![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)
+## Architecture
+
+This is a game written purely in javascirpt using Node.js and three.js as its only dependancies.
 
 ![image](https://github.com/user-attachments/assets/ee597f88-439e-4fef-a4ae-11f02557da14)
