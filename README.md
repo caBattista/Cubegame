@@ -4,7 +4,7 @@
 
 The goal of this online 3rd person multiplayer game is to play a partcle in a particle system.
 You will be able to combine your particle with other free floating ones to unlock new abilities.
-It should combine the concepts of successfull broser games like agar.io and r/place
+It should combine the concepts of successfull browser games like agar.io and r/place
 
 #### Possible Abilities
 + Diferent types of shooting (Single, Multi Shot, Diefferent patterns)
