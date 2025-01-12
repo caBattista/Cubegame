@@ -27,8 +27,13 @@ It uses a physics simulaiton of gravity and a collision system.
 + This is a game written purely in javascirpt using Node.js and three.js as its only dependancies.
   + It uses it's own System for lazy loading and ui rendering. (No Frameworks such as Rect or Angular were used)
 + It uses websockets as it's main way of comunicaiton.
-  +  Spacial Hashgrids are used in an attemt to reduce the traffic over the websockets.
+  + Spacial Hashgrids are used in an attemt to reduce the traffic over the websockets.
+    + Cost reduction needs to be achieved here
 + Containers hosted on heroku with a shared Postgress database have been tested
+
+## Future plans
+
++ Possibly try to use AI tools to reduce the traffic even further by using generated approximaitons of positions.
 
 ## State of the game
 
