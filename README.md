@@ -12,7 +12,7 @@ It should combine the concepts of successfull browser games like agar.io and r/p
 Having emergent structures based on the individual actions of the players would be interesting as well.
 
 #### Possible Abilities
-+ Diferent types of shooting (Single, Multi Shot, Diefferent patterns)
++ Different types of shooting (Single, Multi Shot, Diefferent patterns)
 + Manipulation of gravity fields (Traktor field for gathering particles, Repelling field for defending against other attacks)
 + Manipulation of time relative to the other user
 
