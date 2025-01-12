@@ -7,7 +7,7 @@ You will be able to combine your particle with other free floating ones to unloc
 It should combine the concepts of successfull broser games like agar.io and r/place
 
 #### Possible Abilities
-+ Diferent types of shooting (Single, Multy)
++ Diferent types of shooting (Single, Multi Shot, Diefferent patterns)
 + Manipulation of gravity fields (Traktor field for gathering particles, Repelling field for defending against other attacks)
 + Manipulation of time relative to the other user
 
