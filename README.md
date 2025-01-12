@@ -1,3 +1,5 @@
+# Cubegame - Survive and thrive as a particle within a system
+
 ![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)
 
 # Ideas behind the game
