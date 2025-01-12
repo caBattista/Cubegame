@@ -25,4 +25,4 @@ It uses a physics simulaiton of gravity and a collision system.
 
 ## State of the game
 
-+ As of now it's development is suspended until I have more time again to work on it.
++ As of now it's development is suspended until I have more time again to work on it hopefully soon.
