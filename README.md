@@ -13,5 +13,7 @@ It uses a physics simulaiton of gravity.
 ## Architecture
 
 This is a game written purely in javascirpt using Node.js and three.js as its only dependancies.
+It uses websockets as it's main way of comunicaiton.
+Spacial Hashgrids are used in an attemt to reduce the traffic over the websockets.
 
 
