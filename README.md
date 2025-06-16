@@ -1,6 +1,8 @@
 # Cubegame - Survive and thrive as a particle within a system
 
-![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)
+Watch a DEMO here:
+
+[![Unbenannt](https://github.com/user-attachments/assets/f59e96da-b63d-4024-85ea-218ced2890b0)](https://www.youtube.com/watch?v=XrRKkv0ZK84)
 
 *Sometimes you have to go outside of the box to get a clear picture of it*
 
